@@ -54,6 +54,8 @@ WebServer::WebServer() : _initialized(false) {}
 void WebServer::begin() {
   if (_initialized) return;
 
+  // Set Mongoose log level to INFO to avoid verbose iobuf allocation messages
+  mg_log_set(MG_LL_INFO);
   mg_mgr_init(&_mgr);
 
   char url[32];
@@ -207,7 +209,16 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
 
     // --- Static Web UI & Manifest ---
     if (mg_match(hm->uri, mg_str("/"), NULL) || mg_match(hm->uri, mg_str("/index.html"), NULL)) {
-      mg_http_reply(c, 200, "Content-Type: text/html; charset=utf-8\r\nCache-Control: no-cache\r\n", "%s", INDEX_HTML);
+      // Pre-allocate buffer to prevent multiple incremental reallocations
+      mg_iobuf_resize(&c->send, INDEX_HTML_GZ_LEN + 256);
+      mg_printf(c, "HTTP/1.1 200 OK\r\n"
+                   "Content-Type: text/html; charset=utf-8\r\n"
+                   "Content-Encoding: gzip\r\n"
+                   "Content-Length: %lu\r\n"
+                   "Cache-Control: no-cache\r\n\r\n",
+                (unsigned long)INDEX_HTML_GZ_LEN);
+      mg_send(c, INDEX_HTML_GZ, INDEX_HTML_GZ_LEN);
+      c->is_resp = 0;
       return;
     }
 
@@ -318,12 +329,121 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
 
     // --- Admin APIs (Requires role == "admin") ---
     if (mg_match(hm->uri, mg_str("/api/users#"), NULL) ||
+        mg_match(hm->uri, mg_str("/api/devices/add"), NULL) ||
+        mg_match(hm->uri, mg_str("/api/devices/update"), NULL) ||
+        mg_match(hm->uri, mg_str("/api/devices/delete"), NULL) ||
+        mg_match(hm->uri, mg_str("/api/rooms#"), NULL) ||
         mg_match(hm->uri, mg_str("/api/wifi#"), NULL) ||
         mg_match(hm->uri, mg_str("/api/system#"), NULL)) {
       if (!currentUser.isAdmin()) {
         mg_http_reply(c, 403, "Content-Type: application/json\r\n", "{\"error\":\"Admin privileges required\"}\n");
         return;
       }
+    }
+
+    // Add Device / Control
+    if (mg_match(hm->uri, mg_str("/api/devices/add"), NULL)) {
+      Device d;
+      d.id = getJsonString(hm->body, "$.id");
+      d.name = getJsonString(hm->body, "$.name");
+      d.roomId = getJsonString(hm->body, "$.roomId");
+      
+      double typeVal = 0;
+      mg_json_get_num(hm->body, "$.type", &typeVal);
+      d.type = (DeviceType)(int)typeVal;
+
+      double pinVal = -1;
+      mg_json_get_num(hm->body, "$.pin", &pinVal);
+      d.pin = (int)pinVal;
+
+      bool inverted = false;
+      mg_json_get_bool(hm->body, "$.inverted", &inverted);
+      d.inverted = inverted;
+
+      d.pwmChannel = -1;
+      d.state = false;
+      d.value = (d.type == DEV_DIMMER) ? 75 : 0;
+
+      String err;
+      if (DeviceManager::getInstance().addDevice(d, err)) {
+        mg_http_reply(c, 200, "Content-Type: application/json\r\n", "{\"success\":true}\n");
+      } else {
+        mg_http_reply(c, 400, "Content-Type: application/json\r\n", "{\"error\":\"%s\"}\n", err.c_str());
+      }
+      return;
+    }
+
+    // Update Device / Control
+    if (mg_match(hm->uri, mg_str("/api/devices/update"), NULL)) {
+      Device d;
+      d.id = getJsonString(hm->body, "$.id");
+      d.name = getJsonString(hm->body, "$.name");
+      d.roomId = getJsonString(hm->body, "$.roomId");
+
+      double typeVal = 0;
+      mg_json_get_num(hm->body, "$.type", &typeVal);
+      d.type = (DeviceType)(int)typeVal;
+
+      double pinVal = -1;
+      mg_json_get_num(hm->body, "$.pin", &pinVal);
+      d.pin = (int)pinVal;
+
+      bool inverted = false;
+      mg_json_get_bool(hm->body, "$.inverted", &inverted);
+      d.inverted = inverted;
+
+      d.pwmChannel = -1;
+      d.state = false;
+      d.value = 0;
+
+      String err;
+      if (DeviceManager::getInstance().updateDevice(d, err)) {
+        mg_http_reply(c, 200, "Content-Type: application/json\r\n", "{\"success\":true}\n");
+      } else {
+        mg_http_reply(c, 400, "Content-Type: application/json\r\n", "{\"error\":\"%s\"}\n", err.c_str());
+      }
+      return;
+    }
+
+    // Delete Device / Control
+    if (mg_match(hm->uri, mg_str("/api/devices/delete"), NULL)) {
+      String devId = getJsonString(hm->body, "$.id");
+      String err;
+      if (DeviceManager::getInstance().deleteDevice(devId, err)) {
+        mg_http_reply(c, 200, "Content-Type: application/json\r\n", "{\"success\":true}\n");
+      } else {
+        mg_http_reply(c, 400, "Content-Type: application/json\r\n", "{\"error\":\"%s\"}\n", err.c_str());
+      }
+      return;
+    }
+
+    // Add Room
+    if (mg_match(hm->uri, mg_str("/api/rooms/add"), NULL)) {
+      Room r;
+      r.id = getJsonString(hm->body, "$.id");
+      r.name = getJsonString(hm->body, "$.name");
+      r.icon = getJsonString(hm->body, "$.icon");
+      if (r.icon.length() == 0) r.icon = "home";
+
+      String err;
+      if (DeviceManager::getInstance().addRoom(r, err)) {
+        mg_http_reply(c, 200, "Content-Type: application/json\r\n", "{\"success\":true}\n");
+      } else {
+        mg_http_reply(c, 400, "Content-Type: application/json\r\n", "{\"error\":\"%s\"}\n", err.c_str());
+      }
+      return;
+    }
+
+    // Delete Room
+    if (mg_match(hm->uri, mg_str("/api/rooms/delete"), NULL)) {
+      String roomId = getJsonString(hm->body, "$.id");
+      String err;
+      if (DeviceManager::getInstance().deleteRoom(roomId, err)) {
+        mg_http_reply(c, 200, "Content-Type: application/json\r\n", "{\"success\":true}\n");
+      } else {
+        mg_http_reply(c, 400, "Content-Type: application/json\r\n", "{\"error\":\"%s\"}\n", err.c_str());
+      }
+      return;
     }
 
     // Users List

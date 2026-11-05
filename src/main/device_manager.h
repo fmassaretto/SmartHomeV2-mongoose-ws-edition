@@ -8,9 +8,10 @@
 #include "auth_manager.h"
 
 enum DeviceType {
-  DEV_SWITCH,  // On / Off light or relay
-  DEV_DIMMER,  // 0 - 100% brightness
-  DEV_FAN      // On / Off fan
+  DEV_SWITCH = 0,  // Light or On/Off switch
+  DEV_DIMMER = 1,  // Dimmer (0 - 100% PWM brightness)
+  DEV_FAN = 2,     // Ceiling / Table Fan
+  DEV_RELAY = 3    // Socket / Appliance Relay (Active Low/High)
 };
 
 struct Device {
@@ -18,9 +19,11 @@ struct Device {
   String name;
   String roomId;
   DeviceType type;
-  int pin;
+  int pin;         // ESP32 GPIO pin or -1 for virtual
+  bool inverted;   // true if active-LOW (common for relay modules)
+  int pwmChannel;  // 0-15 assigned for dimmers
   bool state;
-  int value; // 0-100 for dimmer
+  int value;       // 0-100 for dimmer
 };
 
 struct Room {
@@ -48,8 +51,17 @@ public:
 
   void setChangeCallback(DeviceChangeCallback cb);
 
+  // Control operations
   bool setDeviceState(const String& deviceId, bool state, int value = -1);
   bool toggleDevice(const String& deviceId);
+
+  // Admin Dynamic CRUD
+  bool addDevice(Device newDev, String& errorMsg);
+  bool updateDevice(Device updatedDev, String& errorMsg);
+  bool deleteDevice(const String& deviceId, String& errorMsg);
+
+  bool addRoom(const Room& newRoom, String& errorMsg);
+  bool deleteRoom(const String& roomId, String& errorMsg);
 
   Device* getDevice(const String& deviceId);
   SensorReadings getSensors() const { return _sensors; }
@@ -63,12 +75,21 @@ public:
   const std::vector<Room>& getRooms() const { return _rooms; }
   const std::vector<Device>& getDevices() const { return _devices; }
 
+  static bool isSafePin(int pin);
+
 private:
   DeviceManager();
   ~DeviceManager() = default;
 
-  void initHardware();
+  void loadFromNvs();
+  void saveToNvs();
+  void initDefaults();
+
+  void configureHardwarePin(Device& dev);
+  void deconfigureHardwarePin(const Device& dev);
   void updateHardwarePin(const Device& dev);
+  int allocatePwmChannel();
+
   void updateSensors();
 
   std::vector<Room> _rooms;
@@ -78,6 +99,7 @@ private:
   unsigned long _lastSensorUpdate;
   unsigned long _uptimeStart;
   DeviceChangeCallback _changeCallback;
+  int _nextPwmChannel;
 };
 
 #endif // SMARTHOME_DEVICE_MANAGER_H
