@@ -24,6 +24,7 @@ struct Device {
   int pwmChannel;  // 0-15 assigned for dimmers
   bool state;
   int value;       // 0-100 for dimmer
+  String allowedUsers; // "*" for everyone, or comma-separated usernames e.g. "admin,alice"
 };
 
 struct Room {
@@ -54,6 +55,7 @@ public:
   // Control operations
   bool setDeviceState(const String& deviceId, bool state, int value = -1);
   bool toggleDevice(const String& deviceId);
+  bool canUserAccessDevice(const User& user, const Device& dev);
 
   // Admin Dynamic CRUD
   bool addDevice(Device newDev, String& errorMsg);

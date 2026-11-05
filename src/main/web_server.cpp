@@ -313,12 +313,13 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
         return;
       }
 
-      // Check Granular Room Permission!
-      if (!AuthManager::getInstance().canAccessDevice(currentUser, dev->roomId, dev->id)) {
+      // Check Granular Room & Device Permission!
+      if (!AuthManager::getInstance().canAccessDevice(currentUser, dev->roomId, dev->id) ||
+          !DeviceManager::getInstance().canUserAccessDevice(currentUser, *dev)) {
         Serial.printf("[AUTH-DENIED] User '%s' blocked from switching device '%s' in room '%s'\n",
                       currentUser.username.c_str(), dev->id.c_str(), dev->roomId.c_str());
         mg_http_reply(c, 403, "Content-Type: application/json\r\n",
-                      "{\"error\":\"Permission denied: You do not have access to this room\"}\n");
+                      "{\"error\":\"Permission denied: You do not have access to this device or room\"}\n");
         return;
       }
 
@@ -360,6 +361,9 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
       mg_json_get_bool(hm->body, "$.inverted", &inverted);
       d.inverted = inverted;
 
+      String allowed = getJsonString(hm->body, "$.allowedUsers");
+      d.allowedUsers = allowed.length() ? allowed : "*";
+
       d.pwmChannel = -1;
       d.state = false;
       d.value = (d.type == DEV_DIMMER) ? 75 : 0;
@@ -391,6 +395,9 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
       bool inverted = false;
       mg_json_get_bool(hm->body, "$.inverted", &inverted);
       d.inverted = inverted;
+
+      String allowed = getJsonString(hm->body, "$.allowedUsers");
+      d.allowedUsers = allowed.length() ? allowed : "*";
 
       d.pwmChannel = -1;
       d.state = false;

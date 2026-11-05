@@ -49,13 +49,13 @@ void DeviceManager::initDefaults() {
   };
 
   _devices = {
-    {"light_living",  "Living Room Light",   "living_room", DEV_SWITCH, PIN_LIGHT_LIVING,  false, 0, false, 0},
-    {"dimmer_living", "Ceiling Chandelier",  "living_room", DEV_DIMMER, PIN_DIMMER_LIVING, false, 0, false, 75},
-    {"fan_living",    "Ceiling Fan",         "living_room", DEV_FAN,    PIN_FAN_LIVING,    false, 0, false, 0},
-    {"light_bed1",    "Master Bedroom Light","bedroom_1",   DEV_SWITCH, PIN_LIGHT_BED1,    false, 0, false, 0},
-    {"light_bed2",    "Kid's Bedroom Light", "bedroom_2",   DEV_SWITCH, PIN_LIGHT_BED2,    false, 0, false, 0},
-    {"light_kitchen", "Kitchen Downlight",   "kitchen",     DEV_SWITCH, PIN_LIGHT_KITCHEN, false, 0, false, 0},
-    {"light_balcony", "Balcony Accent",      "balcony",     DEV_SWITCH, PIN_LIGHT_BALCONY, false, 0, false, 0}
+    {"light_living",  "Living Room Light",   "living_room", DEV_SWITCH, PIN_LIGHT_LIVING,  false, 0, false, 0, "*"},
+    {"dimmer_living", "Ceiling Chandelier",  "living_room", DEV_DIMMER, PIN_DIMMER_LIVING, false, 0, false, 75, "*"},
+    {"fan_living",    "Ceiling Fan",         "living_room", DEV_FAN,    PIN_FAN_LIVING,    false, 0, false, 0, "*"},
+    {"light_bed1",    "Master Bedroom Light","bedroom_1",   DEV_SWITCH, PIN_LIGHT_BED1,    false, 0, false, 0, "*"},
+    {"light_bed2",    "Kid's Bedroom Light", "bedroom_2",   DEV_SWITCH, PIN_LIGHT_BED2,    false, 0, false, 0, "*"},
+    {"light_kitchen", "Kitchen Downlight",   "kitchen",     DEV_SWITCH, PIN_LIGHT_KITCHEN, false, 0, false, 0, "*"},
+    {"light_balcony", "Balcony Accent",      "balcony",     DEV_SWITCH, PIN_LIGHT_BALCONY, false, 0, false, 0, "*"}
   };
 
   saveToNvs();
@@ -99,18 +99,19 @@ void DeviceManager::loadFromNvs() {
     String raw = s_devPrefs.getString(key.c_str(), "");
     if (raw.length() == 0) continue;
 
-    // Format: id|name|roomId|type|pin|inverted|state|value|pwmChannel
-    int idx[8];
+    // Format: id|name|roomId|type|pin|inverted|state|value|pwmChannel[|allowedUsers]
+    int idx[9];
     int start = 0;
-    bool ok = true;
-    for (int k = 0; k < 8; k++) {
+    int found = 0;
+    for (int k = 0; k < 9; k++) {
       int p = raw.indexOf('|', start);
-      if (p == -1) { ok = false; break; }
+      if (p == -1) break;
       idx[k] = p;
       start = p + 1;
+      found++;
     }
 
-    if (ok) {
+    if (found >= 8) {
       Device d;
       d.id = raw.substring(0, idx[0]);
       d.name = raw.substring(idx[0] + 1, idx[1]);
@@ -120,7 +121,14 @@ void DeviceManager::loadFromNvs() {
       d.inverted = raw.substring(idx[4] + 1, idx[5]).toInt() == 1;
       d.state = raw.substring(idx[5] + 1, idx[6]).toInt() == 1;
       d.value = raw.substring(idx[6] + 1, idx[7]).toInt();
-      d.pwmChannel = raw.substring(idx[7] + 1).toInt();
+      if (found >= 9) {
+        d.pwmChannel = raw.substring(idx[7] + 1, idx[8]).toInt();
+        d.allowedUsers = raw.substring(idx[8] + 1);
+      } else {
+        d.pwmChannel = raw.substring(idx[7] + 1).toInt();
+        d.allowedUsers = "*";
+      }
+      if (d.allowedUsers.length() == 0) d.allowedUsers = "*";
       _devices.push_back(d);
     }
   }
@@ -153,7 +161,8 @@ void DeviceManager::saveToNvs() {
     const Device& d = _devices[i];
     String raw = d.id + "|" + d.name + "|" + d.roomId + "|" + String((int)d.type) + "|"
                + String(d.pin) + "|" + String(d.inverted ? 1 : 0) + "|"
-               + String(d.state ? 1 : 0) + "|" + String(d.value) + "|" + String(d.pwmChannel);
+               + String(d.state ? 1 : 0) + "|" + String(d.value) + "|" + String(d.pwmChannel) + "|"
+               + (d.allowedUsers.length() > 0 ? d.allowedUsers : "*");
     String key = "d_" + String(i);
     s_devPrefs.putString(key.c_str(), raw);
   }
@@ -289,6 +298,10 @@ bool DeviceManager::addDevice(Device newDev, String& errorMsg) {
     if (newDev.value <= 0) newDev.value = 75;
   }
 
+  if (newDev.allowedUsers.length() == 0) {
+    newDev.allowedUsers = "*";
+  }
+
   configureHardwarePin(newDev);
   _devices.push_back(newDev);
   saveToNvs();
@@ -325,6 +338,9 @@ bool DeviceManager::updateDevice(Device updatedDev, String& errorMsg) {
       dev.roomId = updatedDev.roomId;
       dev.type = updatedDev.type;
       dev.inverted = updatedDev.inverted;
+      if (updatedDev.allowedUsers.length() > 0) {
+        dev.allowedUsers = updatedDev.allowedUsers;
+      }
       configureHardwarePin(dev);
 
       saveToNvs();
@@ -464,6 +480,31 @@ String DeviceManager::getSensorsJson() {
   return json;
 }
 
+bool DeviceManager::canUserAccessDevice(const User& user, const Device& dev) {
+  if (user.isAdmin()) return true;
+
+  // If set to allow everyone / wildcard
+  if (dev.allowedUsers == "*" || dev.allowedUsers.equalsIgnoreCase("everyone") ||
+      dev.allowedUsers.equalsIgnoreCase("all") || dev.allowedUsers.length() == 0) {
+    return true;
+  }
+
+  // Check specific usernames in comma-separated list
+  int start = 0;
+  while (start < (int)dev.allowedUsers.length()) {
+    int comma = dev.allowedUsers.indexOf(',', start);
+    String u = (comma == -1) ? dev.allowedUsers.substring(start) : dev.allowedUsers.substring(start, comma);
+    u.trim();
+    if (u.equalsIgnoreCase(user.username)) {
+      return true;
+    }
+    if (comma == -1) break;
+    start = comma + 1;
+  }
+
+  return false;
+}
+
 String DeviceManager::getDevicesJsonForUser(const User& user) {
   AuthManager& auth = AuthManager::getInstance();
 
@@ -471,7 +512,16 @@ String DeviceManager::getDevicesJsonForUser(const User& user) {
   json += "\"rooms\":[";
   bool firstRoom = true;
   for (const auto& room : _rooms) {
-    if (auth.canAccessRoom(user, room.id)) {
+    // Show room if user has room permission OR has at least one accessible device in this room
+    bool hasAccessibleDevice = false;
+    for (const auto& dev : _devices) {
+      if (dev.roomId == room.id && canUserAccessDevice(user, dev)) {
+        hasAccessibleDevice = true;
+        break;
+      }
+    }
+
+    if (user.isAdmin() || auth.canAccessRoom(user, room.id) || hasAccessibleDevice) {
       if (!firstRoom) json += ",";
       firstRoom = false;
       json += "{";
@@ -486,7 +536,7 @@ String DeviceManager::getDevicesJsonForUser(const User& user) {
   json += "\"devices\":[";
   bool firstDev = true;
   for (const auto& dev : _devices) {
-    if (auth.canAccessDevice(user, dev.roomId, dev.id)) {
+    if (canUserAccessDevice(user, dev)) {
       if (!firstDev) json += ",";
       firstDev = false;
       json += "{";
@@ -497,7 +547,8 @@ String DeviceManager::getDevicesJsonForUser(const User& user) {
       json += "\"pin\":" + String(dev.pin) + ",";
       json += "\"inverted\":" + String(dev.inverted ? "true" : "false") + ",";
       json += "\"state\":" + String(dev.state ? "true" : "false") + ",";
-      json += "\"value\":" + String(dev.value);
+      json += "\"value\":" + String(dev.value) + ",";
+      json += "\"allowedUsers\":\"" + (dev.allowedUsers.length() > 0 ? dev.allowedUsers : "*") + "\"";
       json += "}";
     }
   }
@@ -529,7 +580,8 @@ String DeviceManager::getAllDevicesJson() {
     json += "\"pin\":" + String(dev.pin) + ",";
     json += "\"inverted\":" + String(dev.inverted ? "true" : "false") + ",";
     json += "\"state\":" + String(dev.state ? "true" : "false") + ",";
-    json += "\"value\":" + String(dev.value);
+    json += "\"value\":" + String(dev.value) + ",";
+    json += "\"allowedUsers\":\"" + (dev.allowedUsers.length() > 0 ? dev.allowedUsers : "*") + "\"";
     json += "}";
   }
   json += "],";
@@ -538,6 +590,12 @@ String DeviceManager::getAllDevicesJson() {
   json += "}";
   return json;
 }
+//   json += "],";
+
+//   json += "\"sensors\":" + getSensorsJson();
+//   json += "}";
+//   return json;
+// }
 
 String DeviceManager::getSystemStatsJson() {
   uint32_t freeHeap = esp_get_free_heap_size();

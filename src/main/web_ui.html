@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -326,6 +326,7 @@
                   <th>Type</th>
                   <th>ESP32 Pin</th>
                   <th>Logic</th>
+                  <th>Access</th>
                   <th>Live State</th>
                   <th>Actions</th>
                 </tr>
@@ -483,6 +484,17 @@
           <label class="checkbox-item" style="font-weight:600; text-transform:none;">
             <input type="checkbox" id="ctrlModalInverted"> Inverted Logic (Active-LOW, standard for relay modules)
           </label>
+        </div>
+        <div class="form-group">
+          <label>Allowed Users</label>
+          <div style="display:flex; gap:16px; margin-bottom:8px;">
+            <label class="checkbox-item"><input type="radio" name="ctrlAccessMode" id="ctrlAccessAll" value="all" checked onchange="toggleAllowedUsersField()"> Everyone (no restriction)</label>
+            <label class="checkbox-item"><input type="radio" name="ctrlAccessMode" id="ctrlAccessSpecific" value="specific" onchange="toggleAllowedUsersField()"> Specific users only</label>
+          </div>
+          <div id="ctrlAllowedUsersWrap" style="display:none;">
+            <input type="text" id="ctrlModalAllowed" class="input-field" placeholder="e.g. alice,bob (comma-separated usernames)">
+            <p style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Enter usernames separated by commas. These users must also have room access.</p>
+          </div>
         </div>
         <div style="display:flex; gap:10px; margin-top:20px;">
           <button type="button" class="btn btn-outline" onclick="closeControlModal()">Cancel</button>
@@ -844,10 +856,15 @@
       if (valEl && value !== undefined) {
         valEl.innerText = value + '%';
       }
-      const d = appData.devices.find(x => x.id === deviceId);
+      const d = appData.devices && appData.devices.find(x => x.id === deviceId);
       if (d) {
         d.state = state;
         if (value !== undefined) d.value = value;
+      }
+      if (appData.devices) {
+        const count = appData.devices.filter(x => x.state).length;
+        const statEl = document.getElementById('statActive');
+        if (statEl) statEl.innerText = count;
       }
       const adminState = document.getElementById('admin_state_' + deviceId);
       if (adminState) {
@@ -857,6 +874,9 @@
     }
 
     async function toggleDevice(deviceId, state) {
+      const d = appData.devices && appData.devices.find(x => x.id === deviceId);
+      const targetState = (state !== undefined) ? state : (d ? !d.state : true);
+      console.log('Toggling device', deviceId, 'to', targetState);
       try {
         const res = await fetch('/api/devices/control', {
           method: 'POST',
@@ -864,9 +884,11 @@
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ' + authToken
           },
-          body: JSON.stringify({ deviceId, state })
+          body: JSON.stringify({ deviceId, state: targetState })
         });
-        if (!res.ok) {
+        if (res.ok) {
+          updateDeviceUi(deviceId, targetState);
+        } else {
           const err = await res.json();
           alert(err.error || 'Permission denied: You do not have access to this room');
           loadDevices();
@@ -906,11 +928,12 @@
             <td><span class="badge badge-user">${typeName}</span></td>
             <td>${d.pin >= 0 ? `<strong>GPIO ${d.pin}</strong>` : `<em style="color:var(--text-muted)">Virtual</em>`}</td>
             <td><span style="font-size:0.75rem; color:var(--text-muted);">${d.inverted ? 'Active-LOW' : 'Active-HIGH'}</span></td>
+            <td><span style="font-size:0.75rem; color:var(--text-muted);">${(!d.allowedUsers || d.allowedUsers === '*') ? 'Everyone' : d.allowedUsers}</span></td>
             <td>
               <span id="admin_state_${d.id}" class="badge ${d.state ? 'badge-live' : ''}">${d.state ? 'ON' : 'OFF'}</span>
             </td>
             <td class="actions-cell">
-              <button class="btn btn-outline btn-sm" onclick="toggleDevice('${d.id}', ${!d.state})">Toggle</button>
+              <button class="btn btn-outline btn-sm" onclick="toggleDevice('${d.id}')">Toggle</button>
               <button class="btn btn-outline btn-sm" onclick="editControl('${d.id}')">Edit</button>
               <button class="btn btn-danger btn-sm" onclick="deleteControl('${d.id}')">Delete</button>
             </td>
@@ -947,6 +970,9 @@
       document.getElementById('ctrlModalType').value = '0';
       document.getElementById('ctrlModalPin').value = '2';
       document.getElementById('ctrlModalInverted').checked = false;
+      document.getElementById('ctrlAccessAll').checked = true;
+      document.getElementById('ctrlAllowedUsersWrap').style.display = 'none';
+      document.getElementById('ctrlModalAllowed').value = '';
       document.getElementById('controlModal').style.display = 'flex';
     }
 
@@ -960,7 +986,22 @@
       document.getElementById('ctrlModalType').value = String(d.type);
       document.getElementById('ctrlModalPin').value = String(d.pin);
       document.getElementById('ctrlModalInverted').checked = !!d.inverted;
+      const au = d.allowedUsers || '*';
+      if (au === '*' || au === '') {
+        document.getElementById('ctrlAccessAll').checked = true;
+        document.getElementById('ctrlAllowedUsersWrap').style.display = 'none';
+        document.getElementById('ctrlModalAllowed').value = '';
+      } else {
+        document.getElementById('ctrlAccessSpecific').checked = true;
+        document.getElementById('ctrlAllowedUsersWrap').style.display = 'block';
+        document.getElementById('ctrlModalAllowed').value = au;
+      }
       document.getElementById('controlModal').style.display = 'flex';
+    }
+
+    function toggleAllowedUsersField() {
+      const isSpecific = document.getElementById('ctrlAccessSpecific').checked;
+      document.getElementById('ctrlAllowedUsersWrap').style.display = isSpecific ? 'block' : 'none';
     }
 
     function closeControlModal() {
@@ -978,7 +1019,9 @@
 
       const isEdit = id.length > 0;
       const endpoint = isEdit ? '/api/devices/update' : '/api/devices/add';
-      const payload = { id, name, roomId, type, pin, inverted };
+      const isSpecific = document.getElementById('ctrlAccessSpecific').checked;
+      const allowedUsers = isSpecific ? (document.getElementById('ctrlModalAllowed').value.trim() || '*') : '*';
+      const payload = { id, name, roomId, type, pin, inverted, allowedUsers };
 
       try {
         const res = await fetch(endpoint, {
