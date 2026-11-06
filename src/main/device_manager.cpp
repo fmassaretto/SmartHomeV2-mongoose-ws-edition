@@ -239,7 +239,6 @@ bool DeviceManager::setDeviceState(const String& deviceId, bool state, int value
       }
       updateHardwarePin(dev);
 
-      Serial.printf("%d", value);
       Serial.printf("[DEV] Device '%s' state changed -> %s (value: %d, pin: %d)\n",
                     dev.id.c_str(), dev.state ? "ON" : "OFF", dev.value, dev.pin);
 

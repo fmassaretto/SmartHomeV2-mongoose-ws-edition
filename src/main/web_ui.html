@@ -187,6 +187,48 @@
     .checkbox-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
     .checkbox-item { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer; }
 
+    /* Multi-select Combobox */
+    .combobox-container { position: relative; width: 100%; }
+    .combobox-trigger {
+      display: flex; align-items: center; justify-content: space-between; min-height: 44px;
+      padding: 6px 12px; cursor: pointer; user-select: none; gap: 8px;
+    }
+    .combobox-tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; flex: 1; }
+    .combobox-tag {
+      background: rgba(59, 130, 246, 0.2); color: var(--primary);
+      border: 1px solid rgba(59, 130, 246, 0.3); padding: 2px 8px; border-radius: 6px;
+      font-size: 0.8rem; font-weight: 500; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .combobox-tag .tag-remove { cursor: pointer; font-size: 1rem; line-height: 1; opacity: 0.7; }
+    .combobox-tag .tag-remove:hover { opacity: 1; color: var(--danger); }
+    .combobox-placeholder { color: var(--text-muted); font-size: 0.95rem; }
+    .combobox-arrow { color: var(--text-muted); font-size: 0.75rem; transition: transform 0.2s; }
+    .combobox-arrow.open { transform: rotate(180deg); }
+    .combobox-dropdown {
+      position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+      background: var(--card-bg); backdrop-filter: blur(20px); border: 1px solid var(--card-border);
+      border-radius: 12px; padding: 8px; z-index: 100; box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+      max-height: 220px; display: flex; flex-direction: column;
+    }
+    .light-theme .combobox-dropdown { background: #ffffff; box-shadow: 0 10px 25px rgba(0,0,0,0.15); }
+    .combobox-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 4px 6px 8px; border-bottom: 1px solid var(--card-border); font-size: 0.75rem;
+    }
+    .combobox-link { color: var(--primary); cursor: pointer; text-decoration: underline; }
+    .combobox-link:hover { color: var(--primary-hover); }
+    .combobox-options { overflow-y: auto; max-height: 170px; padding-top: 4px; display: flex; flex-direction: column; gap: 2px; }
+    .combobox-option {
+      display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px;
+      cursor: pointer; font-size: 0.85rem; transition: background 0.15s;
+    }
+    .combobox-option:hover { background: rgba(255, 255, 255, 0.05); }
+    .light-theme .combobox-option:hover { background: rgba(0, 0, 0, 0.05); }
+    .combobox-option input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary); }
+    .combobox-option-info { display: flex; flex-direction: column; }
+    .combobox-option-name { font-weight: 600; color: var(--text); }
+    .combobox-option-sub { font-size: 0.72rem; color: var(--text-muted); }
+
     /* Bottom Nav for Mobile / PWA */
     .bottom-nav {
       display: none; position: fixed; bottom: 0; left: 0; right: 0; background: var(--card-bg);
@@ -492,8 +534,27 @@
             <label class="checkbox-item"><input type="radio" name="ctrlAccessMode" id="ctrlAccessSpecific" value="specific" onchange="toggleAllowedUsersField()"> Specific users only</label>
           </div>
           <div id="ctrlAllowedUsersWrap" style="display:none;">
-            <input type="text" id="ctrlModalAllowed" class="input-field" placeholder="e.g. alice,bob (comma-separated usernames)">
-            <p style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Enter usernames separated by commas. These users must also have room access.</p>
+            <div class="combobox-container" id="ctrlUserCombobox">
+              <div class="combobox-trigger input-field" id="ctrlAllowedTrigger" tabindex="0" onclick="toggleAllowedUserDropdown(event)">
+                <div id="ctrlAllowedSelectedTags" class="combobox-tags">
+                  <span class="combobox-placeholder">Select allowed users...</span>
+                </div>
+                <span class="combobox-arrow" id="ctrlAllowedArrow">▼</span>
+              </div>
+              <div class="combobox-dropdown" id="ctrlAllowedDropdown" style="display:none;" onclick="event.stopPropagation()">
+                <div class="combobox-header">
+                  <span style="color:var(--text-muted);" id="ctrlAllowedUserCount">Users</span>
+                  <div style="display:flex; gap:12px;">
+                    <span class="combobox-link" onclick="selectAllAllowedUsers(true)">Select All</span>
+                    <span class="combobox-link" onclick="selectAllAllowedUsers(false)">Clear</span>
+                  </div>
+                </div>
+                <div class="combobox-options" id="ctrlAllowedUserOptions">
+                  <!-- Dynamically populated from systemUsers -->
+                </div>
+              </div>
+            </div>
+            <p style="font-size:0.75rem; color:var(--text-muted); margin-top:6px;">Select which registered users are granted control of this device.</p>
           </div>
         </div>
         <div style="display:flex; gap:10px; margin-top:20px;">
@@ -582,6 +643,8 @@
     let currentUser = null;
     let currentRoomFilter = 'all';
     let appData = { rooms: [], devices: [], sensors: {} };
+    let systemUsers = [];
+    let selectedAllowedUsers = new Set();
     let ws = null;
 
     const TYPE_NAMES = ["Light / Switch", "Dimmer (PWM)", "Fan", "Appliance Relay"];
@@ -890,7 +953,7 @@
           updateDeviceUi(deviceId, targetState);
         } else {
           const err = await res.json();
-          alert(err.error || 'Permission denied: You do not have access to this room');
+          alert(err.error || 'Permission denied: You do not have access to this device');
           loadDevices();
         }
       } catch (e) {
@@ -963,6 +1026,108 @@
       }
     }
 
+    // Multi-Select Combobox for Allowed Users
+    function renderAllowedUsersCombobox() {
+      const container = document.getElementById('ctrlAllowedUserOptions');
+      const countEl = document.getElementById('ctrlAllowedUserCount');
+      if (!container) return;
+
+      if (countEl) countEl.innerText = `${systemUsers.length} Users`;
+
+      if (systemUsers.length === 0) {
+        container.innerHTML = '<div style="padding:10px; text-align:center; color:var(--text-muted); font-size:0.8rem;">No users found in system</div>';
+        updateAllowedUserTags();
+        return;
+      }
+
+      let html = '';
+      systemUsers.forEach(u => {
+        const isChecked = selectedAllowedUsers.has(u.username);
+        html += `
+          <label class="combobox-option" onclick="event.stopPropagation()">
+            <input type="checkbox" value="${u.username}" ${isChecked ? 'checked' : ''} onchange="onAllowedUserCheckboxChange('${u.username}', this.checked)">
+            <div class="combobox-option-info">
+              <span class="combobox-option-name">${u.displayName || u.username}</span>
+              <span class="combobox-option-sub">@${u.username} · ${u.role}</span>
+            </div>
+          </label>
+        `;
+      });
+      container.innerHTML = html;
+      updateAllowedUserTags();
+    }
+
+    function updateAllowedUserTags() {
+      const tagsContainer = document.getElementById('ctrlAllowedSelectedTags');
+      if (!tagsContainer) return;
+
+      if (selectedAllowedUsers.size === 0) {
+        tagsContainer.innerHTML = '<span class="combobox-placeholder">Select allowed users...</span>';
+        return;
+      }
+
+      let html = '';
+      selectedAllowedUsers.forEach(username => {
+        const user = systemUsers.find(u => u.username === username);
+        const name = user ? (user.displayName || user.username) : username;
+        html += `
+          <span class="combobox-tag">
+            ${name}
+            <span class="tag-remove" onclick="removeAllowedUser('${username}', event)">&times;</span>
+          </span>
+        `;
+      });
+      tagsContainer.innerHTML = html;
+    }
+
+    function onAllowedUserCheckboxChange(username, isChecked) {
+      if (isChecked) {
+        selectedAllowedUsers.add(username);
+      } else {
+        selectedAllowedUsers.delete(username);
+      }
+      updateAllowedUserTags();
+    }
+
+    function removeAllowedUser(username, e) {
+      if (e) e.stopPropagation();
+      selectedAllowedUsers.delete(username);
+      renderAllowedUsersCombobox();
+    }
+
+    function selectAllAllowedUsers(selectAll) {
+      if (selectAll) {
+        systemUsers.forEach(u => selectedAllowedUsers.add(u.username));
+      } else {
+        selectedAllowedUsers.clear();
+      }
+      renderAllowedUsersCombobox();
+    }
+
+    function toggleAllowedUserDropdown(e) {
+      if (e) e.stopPropagation();
+      const dd = document.getElementById('ctrlAllowedDropdown');
+      const arrow = document.getElementById('ctrlAllowedArrow');
+      if (!dd) return;
+      const isOpen = dd.style.display !== 'none';
+      dd.style.display = isOpen ? 'none' : 'flex';
+      if (arrow) arrow.classList.toggle('open', !isOpen);
+    }
+
+    function closeAllowedUserDropdown() {
+      const dd = document.getElementById('ctrlAllowedDropdown');
+      const arrow = document.getElementById('ctrlAllowedArrow');
+      if (dd) dd.style.display = 'none';
+      if (arrow) arrow.classList.remove('open');
+    }
+
+    document.addEventListener('click', (e) => {
+      const box = document.getElementById('ctrlUserCombobox');
+      if (box && !box.contains(e.target)) {
+        closeAllowedUserDropdown();
+      }
+    });
+
     function openAddControlModal() {
       document.getElementById('controlModalTitle').innerText = 'Add New Control & Map Pin';
       document.getElementById('ctrlModalId').value = '';
@@ -972,7 +1137,10 @@
       document.getElementById('ctrlModalInverted').checked = false;
       document.getElementById('ctrlAccessAll').checked = true;
       document.getElementById('ctrlAllowedUsersWrap').style.display = 'none';
-      document.getElementById('ctrlModalAllowed').value = '';
+      selectedAllowedUsers.clear();
+      renderAllowedUsersCombobox();
+      closeAllowedUserDropdown();
+      if (systemUsers.length === 0) loadUsers();
       document.getElementById('controlModal').style.display = 'flex';
     }
 
@@ -987,24 +1155,34 @@
       document.getElementById('ctrlModalPin').value = String(d.pin);
       document.getElementById('ctrlModalInverted').checked = !!d.inverted;
       const au = d.allowedUsers || '*';
-      if (au === '*' || au === '') {
+      selectedAllowedUsers.clear();
+      if (au === '*' || au === '' || au.toLowerCase() === 'everyone' || au.toLowerCase() === 'all') {
         document.getElementById('ctrlAccessAll').checked = true;
         document.getElementById('ctrlAllowedUsersWrap').style.display = 'none';
-        document.getElementById('ctrlModalAllowed').value = '';
       } else {
         document.getElementById('ctrlAccessSpecific').checked = true;
         document.getElementById('ctrlAllowedUsersWrap').style.display = 'block';
-        document.getElementById('ctrlModalAllowed').value = au;
+        au.split(',').forEach(u => {
+          const trimmed = u.trim();
+          if (trimmed) selectedAllowedUsers.add(trimmed);
+        });
       }
+      renderAllowedUsersCombobox();
+      closeAllowedUserDropdown();
+      if (systemUsers.length === 0) loadUsers();
       document.getElementById('controlModal').style.display = 'flex';
     }
 
     function toggleAllowedUsersField() {
       const isSpecific = document.getElementById('ctrlAccessSpecific').checked;
       document.getElementById('ctrlAllowedUsersWrap').style.display = isSpecific ? 'block' : 'none';
+      if (!isSpecific) {
+        closeAllowedUserDropdown();
+      }
     }
 
     function closeControlModal() {
+      closeAllowedUserDropdown();
       document.getElementById('controlModal').style.display = 'none';
     }
 
@@ -1020,7 +1198,14 @@
       const isEdit = id.length > 0;
       const endpoint = isEdit ? '/api/devices/update' : '/api/devices/add';
       const isSpecific = document.getElementById('ctrlAccessSpecific').checked;
-      const allowedUsers = isSpecific ? (document.getElementById('ctrlModalAllowed').value.trim() || '*') : '*';
+      let allowedUsers = '*';
+      if (isSpecific) {
+        if (selectedAllowedUsers.size === 0) {
+          alert('Please select at least one user from the combobox, or select "Everyone".');
+          return;
+        }
+        allowedUsers = Array.from(selectedAllowedUsers).join(',');
+      }
       const payload = { id, name, roomId, type, pin, inverted, allowedUsers };
 
       try {
@@ -1102,8 +1287,9 @@
           headers: { 'Authorization': 'Bearer ' + authToken }
         });
         if (res.ok) {
-          const users = await res.json();
-          renderUserTable(users);
+          systemUsers = await res.json();
+          renderUserTable(systemUsers);
+          renderAllowedUsersCombobox();
         }
       } catch (e) {}
     }
