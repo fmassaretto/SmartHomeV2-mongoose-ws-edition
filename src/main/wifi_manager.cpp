@@ -41,15 +41,17 @@ void WifiManager::setupCombinationMode() {
   Serial.println("[WIFI] Initializing Combination Mode (AP + STA)...");
 
   WiFi.persistent(false);
-  WiFi.disconnect(true, true);
-  delay(100);
+  WiFi.setAutoReconnect(true);
 
   // Set Dual Mode
   WiFi.mode(WIFI_AP_STA);
 
+  // Disable modem power saving so dual AP+STA radio doesn't drop handshake packets
+  WiFi.setSleep(false);
+
   // Start SoftAP
-  IPAddress apIP(192, 168, 0, 111);
-  IPAddress gateway(192, 168, 0, 1);
+  IPAddress apIP(192, 168, 4, 1);
+  IPAddress gateway(192, 168, 4, 1);
   IPAddress subnet(255, 255, 255, 0);
 
   WiFi.softAPConfig(apIP, gateway, subnet);
@@ -86,8 +88,11 @@ void WifiManager::loop() {
       _staConnected = true;
       _staIp = WiFi.localIP().toString();
       _retryCount = 0;
+      Serial.println("\n==================================================");
       Serial.printf("[WIFI] Station Connected! IP: %s (RSSI: %d dBm)\n",
                     _staIp.c_str(), WiFi.RSSI());
+      Serial.printf(" [READY] Web UI Dashboard: http://%s\n", _staIp.c_str());
+      Serial.println("==================================================\n");
     }
   } else {
     if (_staConnected) {
@@ -96,15 +101,14 @@ void WifiManager::loop() {
       Serial.println("[WIFI] Station disconnected from AP!");
     }
 
-    // Auto reconnect every 15 seconds if configured
+    // Auto reconnect every 5 seconds if configured
     if (_staSsid.length() > 0) {
       unsigned long now = millis();
-      if (now - _lastReconnectAttempt > 15000) {
+      if (now - _lastReconnectAttempt > 5000) {
         _lastReconnectAttempt = now;
         _retryCount++;
         Serial.printf("[WIFI] Reconnecting to STA '%s' (attempt %d)...\n",
                       _staSsid.c_str(), _retryCount);
-        WiFi.disconnect();
         WiFi.begin(_staSsid.c_str(), _staPassword.c_str());
       }
     }
