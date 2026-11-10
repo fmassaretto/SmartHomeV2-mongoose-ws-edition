@@ -187,6 +187,15 @@
     .checkbox-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
     .checkbox-item { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer; }
 
+
+    select, ::picker(select) {
+      appearance: base-select;
+    }
+
+    ::picker(select) {
+      background-color: rgba(30, 41, 59, 0.9); color: #fff; border-radius: 6px; padding: 4px 8px; font-size: 0.85rem;
+    }
+
     /* Multi-select Combobox */
     .combobox-container { position: relative; width: 100%; }
     .combobox-trigger {
@@ -369,6 +378,7 @@
                   <th>ESP32 Pin</th>
                   <th>Logic</th>
                   <th>Access</th>
+                  <th>Alexa</th>
                   <th>Live State</th>
                   <th>Actions</th>
                 </tr>
@@ -525,6 +535,11 @@
         <div class="form-group">
           <label class="checkbox-item" style="font-weight:600; text-transform:none;">
             <input type="checkbox" id="ctrlModalInverted"> Inverted Logic (Active-LOW, standard for relay modules)
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="checkbox-item" style="font-weight:600; text-transform:none;">
+            <input type="checkbox" id="ctrlModalAlexa" checked> 🎙️ Discoverable & Controllable by Alexa (Voice Control)
           </label>
         </div>
         <div class="form-group">
@@ -867,13 +882,13 @@
                 ${d.pin >= 0 ? `<span class="badge-pin">GPIO ${d.pin}</span>` : `<span style="font-size:0.7rem; color:var(--text-muted);">Virtual</span>`}
               </div>
             </div>
-            ${isDimmer ? `
+            ${(isDimmer || isFan) ? `
               <div class="range-wrap">
                 <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">
-                  <span>Brightness</span>
-                  <span id="val_${d.id}">${d.value}%</span>
+                  <span>${isFan ? 'Fan Speed' : 'Brightness'}</span>
+                  <span id="val_${d.id}">${d.value || (d.state ? 100 : 0)}%</span>
                 </div>
-                <input type="range" min="1" max="100" value="${d.value}" class="range-slider" 
+                <input type="range" min="1" max="100" id="slider_${d.id}" value="${d.value || (d.state ? 100 : 0)}" class="range-slider" 
                        oninput="document.getElementById('val_${d.id}').innerText = this.value + '%'"
                        onchange="setDimmerValue('${d.id}', this.value)">
               </div>
@@ -919,10 +934,21 @@
       if (valEl && value !== undefined) {
         valEl.innerText = value + '%';
       }
+      const sliderEl = document.getElementById('slider_' + deviceId);
+      if (sliderEl && value !== undefined) {
+        sliderEl.value = value;
+      }
       const d = appData.devices && appData.devices.find(x => x.id === deviceId);
       if (d) {
         d.state = state;
         if (value !== undefined) d.value = value;
+        if (card && d.type === 2) {
+          const svg = card.querySelector('.device-icon-wrap svg');
+          if (svg) {
+            if (state) svg.classList.add('spinning');
+            else svg.classList.remove('spinning');
+          }
+        }
       }
       if (appData.devices) {
         const count = appData.devices.filter(x => x.state).length;
@@ -992,6 +1018,7 @@
             <td>${d.pin >= 0 ? `<strong>GPIO ${d.pin}</strong>` : `<em style="color:var(--text-muted)">Virtual</em>`}</td>
             <td><span style="font-size:0.75rem; color:var(--text-muted);">${d.inverted ? 'Active-LOW' : 'Active-HIGH'}</span></td>
             <td><span style="font-size:0.75rem; color:var(--text-muted);">${(!d.allowedUsers || d.allowedUsers === '*') ? 'Everyone' : d.allowedUsers}</span></td>
+            <td>${d.alexaEnabled !== false ? '<span class="badge badge-live" style="font-size:0.75rem;">🎙️ Yes</span>' : '<span class="badge" style="font-size:0.75rem; opacity:0.6;">No</span>'}</td>
             <td>
               <span id="admin_state_${d.id}" class="badge ${d.state ? 'badge-live' : ''}">${d.state ? 'ON' : 'OFF'}</span>
             </td>
@@ -1135,6 +1162,7 @@
       document.getElementById('ctrlModalType').value = '0';
       document.getElementById('ctrlModalPin').value = '2';
       document.getElementById('ctrlModalInverted').checked = false;
+      document.getElementById('ctrlModalAlexa').checked = true;
       document.getElementById('ctrlAccessAll').checked = true;
       document.getElementById('ctrlAllowedUsersWrap').style.display = 'none';
       selectedAllowedUsers.clear();
@@ -1154,6 +1182,7 @@
       document.getElementById('ctrlModalType').value = String(d.type);
       document.getElementById('ctrlModalPin').value = String(d.pin);
       document.getElementById('ctrlModalInverted').checked = !!d.inverted;
+      document.getElementById('ctrlModalAlexa').checked = (d.alexaEnabled !== false);
       const au = d.allowedUsers || '*';
       selectedAllowedUsers.clear();
       if (au === '*' || au === '' || au.toLowerCase() === 'everyone' || au.toLowerCase() === 'all') {
@@ -1194,6 +1223,7 @@
       const type = parseInt(document.getElementById('ctrlModalType').value);
       const pin = parseInt(document.getElementById('ctrlModalPin').value);
       const inverted = document.getElementById('ctrlModalInverted').checked;
+      const alexaEnabled = document.getElementById('ctrlModalAlexa').checked;
 
       const isEdit = id.length > 0;
       const endpoint = isEdit ? '/api/devices/update' : '/api/devices/add';
@@ -1206,7 +1236,7 @@
         }
         allowedUsers = Array.from(selectedAllowedUsers).join(',');
       }
-      const payload = { id, name, roomId, type, pin, inverted, allowedUsers };
+      const payload = { id, name, roomId, type, pin, inverted, allowedUsers, alexaEnabled };
 
       try {
         const res = await fetch(endpoint, {
