@@ -25,6 +25,7 @@ struct Device {
   bool state;
   int value;       // 0-100 for dimmer
   String allowedUsers; // "*" for everyone, or comma-separated usernames e.g. "admin,alice"
+  bool alexaEnabled;   // true if discoverable & controllable by Alexa (admin-controlled)
 };
 
 struct Room {

@@ -56,4 +56,7 @@
 // Token expiration (7 days)
 #define SESSION_EXPIRY_MS      (7ULL * 24 * 3600 * 1000)
 
+// Local Voice Assistant / Amazon Alexa Echo Integration
+#define ENABLE_ALEXA_LOCAL_CONTROL 1
+
 #endif // SMARTHOME_CONFIG_H

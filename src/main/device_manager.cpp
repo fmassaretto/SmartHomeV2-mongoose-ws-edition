@@ -49,13 +49,13 @@ void DeviceManager::initDefaults() {
   };
 
   _devices = {
-    {"light_living",  "Living Room Light",   "living_room", DEV_SWITCH, PIN_LIGHT_LIVING,  false, 0, false, 0, "*"},
-    {"dimmer_living", "Ceiling Chandelier",  "living_room", DEV_DIMMER, PIN_DIMMER_LIVING, false, 0, false, 75, "*"},
-    {"fan_living",    "Ceiling Fan",         "living_room", DEV_FAN,    PIN_FAN_LIVING,    false, 0, false, 0, "*"},
-    {"light_bed1",    "Master Bedroom Light","bedroom_1",   DEV_SWITCH, PIN_LIGHT_BED1,    false, 0, false, 0, "*"},
-    {"light_bed2",    "Kid's Bedroom Light", "bedroom_2",   DEV_SWITCH, PIN_LIGHT_BED2,    false, 0, false, 0, "*"},
-    {"light_kitchen", "Kitchen Downlight",   "kitchen",     DEV_SWITCH, PIN_LIGHT_KITCHEN, false, 0, false, 0, "*"},
-    {"light_balcony", "Balcony Accent",      "balcony",     DEV_SWITCH, PIN_LIGHT_BALCONY, false, 0, false, 0, "*"}
+    {"light_living",  "Living Room Light",   "living_room", DEV_SWITCH, PIN_LIGHT_LIVING,  false, 0, false, 100, "*", true},
+    {"dimmer_living", "Ceiling Chandelier",  "living_room", DEV_DIMMER, PIN_DIMMER_LIVING, false, 0, false, 75, "*", true},
+    {"fan_living",    "Ceiling Fan",         "living_room", DEV_FAN,    PIN_FAN_LIVING,    false, 0, false, 80, "*", true},
+    {"light_bed1",    "Master Bedroom Light","bedroom_1",   DEV_SWITCH, PIN_LIGHT_BED1,    false, 0, false, 100, "*", true},
+    {"light_bed2",    "Kid's Bedroom Light", "bedroom_2",   DEV_SWITCH, PIN_LIGHT_BED2,    false, 0, false, 100, "*", true},
+    {"light_kitchen", "Kitchen Downlight",   "kitchen",     DEV_SWITCH, PIN_LIGHT_KITCHEN, false, 0, false, 100, "*", true},
+    {"light_balcony", "Balcony Accent",      "balcony",     DEV_SWITCH, PIN_LIGHT_BALCONY, false, 0, false, 100, "*", true}
   };
 
   saveToNvs();
@@ -99,11 +99,11 @@ void DeviceManager::loadFromNvs() {
     String raw = s_devPrefs.getString(key.c_str(), "");
     if (raw.length() == 0) continue;
 
-    // Format: id|name|roomId|type|pin|inverted|state|value|pwmChannel[|allowedUsers]
-    int idx[9];
+    // Format: id|name|roomId|type|pin|inverted|state|value|pwmChannel[|allowedUsers[|alexaEnabled]]
+    int idx[10];
     int start = 0;
     int found = 0;
-    for (int k = 0; k < 9; k++) {
+    for (int k = 0; k < 10; k++) {
       int p = raw.indexOf('|', start);
       if (p == -1) break;
       idx[k] = p;
@@ -121,12 +121,18 @@ void DeviceManager::loadFromNvs() {
       d.inverted = raw.substring(idx[4] + 1, idx[5]).toInt() == 1;
       d.state = raw.substring(idx[5] + 1, idx[6]).toInt() == 1;
       d.value = raw.substring(idx[6] + 1, idx[7]).toInt();
-      if (found >= 9) {
+      if (found >= 10) {
+        d.pwmChannel = raw.substring(idx[7] + 1, idx[8]).toInt();
+        d.allowedUsers = raw.substring(idx[8] + 1, idx[9]);
+        d.alexaEnabled = raw.substring(idx[9] + 1).toInt() == 1;
+      } else if (found >= 9) {
         d.pwmChannel = raw.substring(idx[7] + 1, idx[8]).toInt();
         d.allowedUsers = raw.substring(idx[8] + 1);
+        d.alexaEnabled = true;
       } else {
         d.pwmChannel = raw.substring(idx[7] + 1).toInt();
         d.allowedUsers = "*";
+        d.alexaEnabled = true;
       }
       if (d.allowedUsers.length() == 0) d.allowedUsers = "*";
       _devices.push_back(d);
@@ -162,7 +168,8 @@ void DeviceManager::saveToNvs() {
     String raw = d.id + "|" + d.name + "|" + d.roomId + "|" + String((int)d.type) + "|"
                + String(d.pin) + "|" + String(d.inverted ? 1 : 0) + "|"
                + String(d.state ? 1 : 0) + "|" + String(d.value) + "|" + String(d.pwmChannel) + "|"
-               + (d.allowedUsers.length() > 0 ? d.allowedUsers : "*");
+               + (d.allowedUsers.length() > 0 ? d.allowedUsers : "*") + "|"
+               + String(d.alexaEnabled ? 1 : 0);
     String key = "d_" + String(i);
     s_devPrefs.putString(key.c_str(), raw);
   }
@@ -172,14 +179,15 @@ void DeviceManager::saveToNvs() {
 void DeviceManager::configureHardwarePin(Device& dev) {
   if (dev.pin < 0) return;
 
-  if (dev.type == DEV_DIMMER) {
+  if (dev.type == DEV_DIMMER || dev.type == DEV_FAN) {
     if (dev.pwmChannel < 0 || dev.pwmChannel > 15) {
       dev.pwmChannel = allocatePwmChannel();
     }
     ledcSetup(dev.pwmChannel, PWM_FREQ, PWM_RESOLUTION);
     ledcAttachPin(dev.pin, dev.pwmChannel);
     updateHardwarePin(dev);
-    Serial.printf("[DEV-PIN] Configured Dimmer Pin %d on PWM Channel %d\n", dev.pin, dev.pwmChannel);
+    Serial.printf("[DEV-PIN] Configured PWM Pin %d on PWM Channel %d (type: %s)\n",
+                  dev.pin, dev.pwmChannel, dev.type == DEV_FAN ? "FAN" : "DIMMER");
   } else {
     pinMode(dev.pin, OUTPUT);
     updateHardwarePin(dev);
@@ -191,7 +199,7 @@ void DeviceManager::configureHardwarePin(Device& dev) {
 void DeviceManager::deconfigureHardwarePin(const Device& dev) {
   if (dev.pin < 0) return;
 
-  if (dev.type == DEV_DIMMER) {
+  if (dev.type == DEV_DIMMER || dev.type == DEV_FAN) {
     ledcDetachPin(dev.pin);
   }
   digitalWrite(dev.pin, LOW);
@@ -201,10 +209,11 @@ void DeviceManager::deconfigureHardwarePin(const Device& dev) {
 void DeviceManager::updateHardwarePin(const Device& dev) {
   if (dev.pin < 0) return;
 
-  if (dev.type == DEV_DIMMER) {
+  if (dev.type == DEV_DIMMER || dev.type == DEV_FAN) {
     uint32_t duty = 0;
     if (dev.state) {
-      duty = (uint32_t)(dev.value * 255 / 100);
+      int val = (dev.value > 0) ? dev.value : 100;
+      duty = (uint32_t)(val * 255 / 100);
       if (dev.inverted) duty = 255 - duty;
     } else {
       duty = dev.inverted ? 255 : 0;
@@ -236,6 +245,8 @@ bool DeviceManager::setDeviceState(const String& deviceId, bool state, int value
       dev.state = state;
       if (value >= 0 && value <= 100) {
         dev.value = value;
+      } else if (state && dev.value <= 0) {
+        dev.value = 100;
       }
       updateHardwarePin(dev);
 
@@ -340,6 +351,7 @@ bool DeviceManager::updateDevice(Device updatedDev, String& errorMsg) {
       if (updatedDev.allowedUsers.length() > 0) {
         dev.allowedUsers = updatedDev.allowedUsers;
       }
+      dev.alexaEnabled = updatedDev.alexaEnabled;
       configureHardwarePin(dev);
 
       saveToNvs();
@@ -547,7 +559,8 @@ String DeviceManager::getDevicesJsonForUser(const User& user) {
       json += "\"inverted\":" + String(dev.inverted ? "true" : "false") + ",";
       json += "\"state\":" + String(dev.state ? "true" : "false") + ",";
       json += "\"value\":" + String(dev.value) + ",";
-      json += "\"allowedUsers\":\"" + (dev.allowedUsers.length() > 0 ? dev.allowedUsers : "*") + "\"";
+      json += "\"allowedUsers\":\"" + (dev.allowedUsers.length() > 0 ? dev.allowedUsers : "*") + "\",";
+      json += "\"alexaEnabled\":" + String(dev.alexaEnabled ? "true" : "false");
       json += "}";
     }
   }
@@ -580,7 +593,8 @@ String DeviceManager::getAllDevicesJson() {
     json += "\"inverted\":" + String(dev.inverted ? "true" : "false") + ",";
     json += "\"state\":" + String(dev.state ? "true" : "false") + ",";
     json += "\"value\":" + String(dev.value) + ",";
-    json += "\"allowedUsers\":\"" + (dev.allowedUsers.length() > 0 ? dev.allowedUsers : "*") + "\"";
+    json += "\"allowedUsers\":\"" + (dev.allowedUsers.length() > 0 ? dev.allowedUsers : "*") + "\",";
+    json += "\"alexaEnabled\":" + String(dev.alexaEnabled ? "true" : "false");
     json += "}";
   }
   json += "],";
@@ -589,12 +603,6 @@ String DeviceManager::getAllDevicesJson() {
   json += "}";
   return json;
 }
-//   json += "],";
-
-//   json += "\"sensors\":" + getSensorsJson();
-//   json += "}";
-//   return json;
-// }
 
 String DeviceManager::getSystemStatsJson() {
   uint32_t freeHeap = esp_get_free_heap_size();

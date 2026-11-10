@@ -3,6 +3,7 @@
 #include "auth_manager.h"
 #include "device_manager.h"
 #include "wifi_manager.h"
+#include "alexa_manager.h"
 #include <esp_ota_ops.h>
 #include <esp_system.h>
 
@@ -42,6 +43,23 @@ static String extractToken(struct mg_http_message *hm) {
     }
   }
   return "";
+}
+
+// Universal JSON API response helper with complete CORS & Private Network Access (PNA) headers
+static void sendJsonResponse(struct mg_connection *c, struct mg_http_message *hm, int status, const String& body, const char* extraHeaders = NULL) {
+  struct mg_str *origin = mg_http_get_header(hm, "Origin");
+  String headers = "Content-Type: application/json\r\n";
+  if (origin && origin->len > 0) {
+    headers += "Access-Control-Allow-Origin: " + String(origin->buf, origin->len) + "\r\n";
+    headers += "Access-Control-Allow-Credentials: true\r\n";
+  } else {
+    headers += "Access-Control-Allow-Origin: *\r\n";
+  }
+  headers += "Access-Control-Allow-Private-Network: true\r\n";
+  if (extraHeaders && strlen(extraHeaders) > 0) {
+    headers += extraHeaders;
+  }
+  mg_http_reply(c, status, headers.c_str(), "%s", body.c_str());
 }
 
 WebServer& WebServer::getInstance() {
@@ -122,7 +140,7 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
           if (endErr == ESP_OK) {
             esp_ota_set_boot_partition(ota->partition);
             Serial.println("[OTA] Firmware updated successfully! Rebooting in 1s...");
-            mg_http_reply(c, 200, "Content-Type: application/json\r\n", "{\"success\":true}\n");
+            mg_http_reply(c, 200, "Content-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Private-Network: true\r\n", "{\"success\":true}\n");
             
             // Schedule reboot
             mg_timer_add(&server->_mgr, 1000, 0, [](void*) {
@@ -130,10 +148,10 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
             }, NULL);
           } else {
             Serial.printf("[OTA] End error: 0x%x\n", endErr);
-            mg_http_reply(c, 500, "Content-Type: application/json\r\n", "{\"error\":\"OTA end failed\"}\n");
+            mg_http_reply(c, 500, "Content-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Private-Network: true\r\n", "{\"error\":\"OTA end failed\"}\n");
           }
         } else {
-          mg_http_reply(c, 500, "Content-Type: application/json\r\n", "{\"error\":\"OTA write error\"}\n");
+          mg_http_reply(c, 500, "Content-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Private-Network: true\r\n", "{\"error\":\"OTA write error\"}\n");
         }
         memset(ota, 0, sizeof(*ota));
         c->is_draining = 1;
@@ -150,11 +168,11 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
   // 2. Incoming HTTP Header inspection (for OTA prep)
   if (ev == MG_EV_HTTP_HDRS) {
     struct mg_http_message *hm = (struct mg_http_message *)ev_data;
-    if (mg_match(hm->uri, mg_str("/api/ota/upload"), NULL)) {
+    if (mg_match(hm->uri, mg_str("/api/ota/upload"), NULL) && strncasecmp(hm->method.buf, "POST", 4) == 0) {
       String token = extractToken(hm);
       User user;
       if (!AuthManager::getInstance().validateToken(token, user) || !user.isAdmin()) {
-        mg_http_reply(c, 403, "Content-Type: application/json\r\n", "{\"error\":\"Admin required\"}\n");
+        sendJsonResponse(c, hm, 403, "{\"error\":\"Admin required\"}\n");
         c->is_draining = 1;
         return;
       }
@@ -162,14 +180,14 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
       struct mg_str *cl = mg_http_get_header(hm, "Content-Length");
       size_t totalLen = cl ? mg_str_to_num(*cl, 10, 0, 0) : 0;
       if (totalLen == 0) {
-        mg_http_reply(c, 400, "Content-Type: application/json\r\n", "{\"error\":\"Invalid Content-Length\"}\n");
+        sendJsonResponse(c, hm, 400, "{\"error\":\"Invalid Content-Length\"}\n");
         c->is_draining = 1;
         return;
       }
 
       const esp_partition_t *nextPart = esp_ota_get_next_update_partition(NULL);
       if (!nextPart) {
-        mg_http_reply(c, 500, "Content-Type: application/json\r\n", "{\"error\":\"No OTA partition\"}\n");
+        sendJsonResponse(c, hm, 500, "{\"error\":\"No OTA partition\"}\n");
         c->is_draining = 1;
         return;
       }
@@ -178,7 +196,7 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
       esp_err_t err = esp_ota_begin(nextPart, totalLen, &handle);
       if (err != ESP_OK) {
         Serial.printf("[OTA] Begin error: 0x%x\n", err);
-        mg_http_reply(c, 500, "Content-Type: application/json\r\n", "{\"error\":\"OTA begin failed\"}\n");
+        sendJsonResponse(c, hm, 500, "{\"error\":\"OTA begin failed\"}\n");
         c->is_draining = 1;
         return;
       }
@@ -207,15 +225,62 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
   if (ev == MG_EV_HTTP_MSG) {
     struct mg_http_message *hm = (struct mg_http_message *)ev_data;
 
+    // --- CORS & Private Network Access (PNA) Preflight OPTIONS Handler ---
+    if (strncasecmp(hm->method.buf, "OPTIONS", 7) == 0) {
+      struct mg_str *origin = mg_http_get_header(hm, "Origin");
+      String originHeader = "Access-Control-Allow-Origin: *\r\n";
+      if (origin && origin->len > 0) {
+        originHeader = "Access-Control-Allow-Origin: " + String(origin->buf, origin->len) + "\r\n";
+        originHeader += "Access-Control-Allow-Credentials: true\r\n";
+      }
+
+      String respHeaders = originHeader +
+        "Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS\r\n"
+        "Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, Origin, Accept\r\n"
+        "Access-Control-Allow-Private-Network: true\r\n"
+        "Access-Control-Max-Age: 86400\r\n";
+
+      mg_http_reply(c, 204, respHeaders.c_str(), "");
+      return;
+    }
+
     // --- Static Web UI & Manifest ---
     if (mg_match(hm->uri, mg_str("/"), NULL) || mg_match(hm->uri, mg_str("/index.html"), NULL)) {
+      // Check if accessed via mDNS (.local) - redirect to direct IP to avoid Chrome Private Network Access blocks
+      struct mg_str *host = mg_http_get_header(hm, "Host");
+      if (host) {
+        String hStr(host->buf, host->len);
+        if (hStr.indexOf(".local") >= 0) {
+          String targetIp;
+          char remIp[64];
+          mg_snprintf(remIp, sizeof(remIp), "%M", mg_print_ip, &c->rem);
+          if (strncmp(remIp, "192.168.4.", 10) == 0) {
+            targetIp = "192.168.4.1";
+          } else if (WiFi.status() == WL_CONNECTED && WiFi.localIP().toString() != "0.0.0.0") {
+            targetIp = WiFi.localIP().toString();
+          } else {
+            targetIp = "192.168.4.1";
+          }
+
+          String loc = "http://" + targetIp + "/";
+          String headers = "Location: " + loc + "\r\n"
+                           "Cache-Control: no-cache\r\n"
+                           "Access-Control-Allow-Origin: *\r\n"
+                           "Access-Control-Allow-Private-Network: true\r\n";
+          mg_http_reply(c, 307, headers.c_str(), "");
+          return;
+        }
+      }
+
       // Pre-allocate buffer to prevent multiple incremental reallocations
       mg_iobuf_resize(&c->send, INDEX_HTML_GZ_LEN + 256);
       mg_printf(c, "HTTP/1.1 200 OK\r\n"
                    "Content-Type: text/html; charset=utf-8\r\n"
                    "Content-Encoding: gzip\r\n"
                    "Content-Length: %lu\r\n"
-                   "Cache-Control: no-cache\r\n\r\n",
+                   "Cache-Control: no-cache\r\n"
+                   "Access-Control-Allow-Origin: *\r\n"
+                   "Access-Control-Allow-Private-Network: true\r\n\r\n",
                 (unsigned long)INDEX_HTML_GZ_LEN);
       mg_send(c, INDEX_HTML_GZ, INDEX_HTML_GZ_LEN);
       c->is_resp = 0;
@@ -223,7 +288,12 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
     }
 
     if (mg_match(hm->uri, mg_str("/manifest.json"), NULL)) {
-      mg_http_reply(c, 200, "Content-Type: application/json\r\nCache-Control: max-age=86400\r\n", "%s", MANIFEST_JSON);
+      mg_http_reply(c, 200,
+                    "Content-Type: application/json\r\n"
+                    "Cache-Control: max-age=86400\r\n"
+                    "Access-Control-Allow-Origin: *\r\n"
+                    "Access-Control-Allow-Private-Network: true\r\n",
+                    "%s", MANIFEST_JSON);
       return;
     }
 
@@ -231,6 +301,12 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
     if (mg_match(hm->uri, mg_str("/ws"), NULL)) {
       mg_ws_upgrade(c, hm, NULL);
       Serial.printf("[WS] New client connected (ID: %lu)\n", c->id);
+      return;
+    }
+
+    // --- Alexa / Local Voice Assistant Hue API Integration ---
+    if (AlexaManager::getInstance().isAlexaRequest(hm)) {
+      AlexaManager::getInstance().handleHttpRequest(c, hm);
       return;
     }
 
@@ -252,12 +328,9 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
                  "Set-Cookie: access_token=%s; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800\r\n",
                  token.c_str());
 
-        mg_http_reply(c, 200,
-                      (String("Content-Type: application/json\r\n") + cookie).c_str(),
-                      "%s", resp.c_str());
+        sendJsonResponse(c, hm, 200, resp, cookie);
       } else {
-        mg_http_reply(c, 401, "Content-Type: application/json\r\n",
-                      "{\"error\":\"Invalid username or password\"}\n");
+        sendJsonResponse(c, hm, 401, "{\"error\":\"Invalid username or password\"}\n");
       }
       return;
     }
@@ -266,9 +339,7 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
     if (mg_match(hm->uri, mg_str("/api/auth/logout"), NULL)) {
       String token = extractToken(hm);
       AuthManager::getInstance().logout(token);
-      mg_http_reply(c, 200,
-                    "Content-Type: application/json\r\nSet-Cookie: access_token=; Path=/; Max-Age=0\r\n",
-                    "{\"success\":true}\n");
+      sendJsonResponse(c, hm, 200, "{\"success\":true}\n", "Set-Cookie: access_token=; Path=/; Max-Age=0\r\n");
       return;
     }
 
@@ -279,8 +350,7 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
 
     if (mg_match(hm->uri, mg_str("/api/#"), NULL)) {
       if (!authed) {
-        mg_http_reply(c, 401, "Content-Type: application/json\r\n",
-                      "{\"error\":\"Unauthorized - Please sign in\"}\n");
+        sendJsonResponse(c, hm, 401, "{\"error\":\"Unauthorized - Please sign in\"}\n");
         return;
       }
     }
@@ -288,14 +358,14 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
     // --- API: Get Current User Profile ---
     if (mg_match(hm->uri, mg_str("/api/auth/me"), NULL)) {
       String json = AuthManager::getInstance().getUserProfileJson(currentUser) + "\n";
-      mg_http_reply(c, 200, "Content-Type: application/json\r\n", "%s", json.c_str());
+      sendJsonResponse(c, hm, 200, json);
       return;
     }
 
     // --- API: Get Devices (Filtered by User Room Permissions!) ---
     if (mg_match(hm->uri, mg_str("/api/devices"), NULL) && strncasecmp(hm->method.buf, "GET", 3) == 0) {
       String json = DeviceManager::getInstance().getDevicesJsonForUser(currentUser) + "\n";
-      mg_http_reply(c, 200, "Content-Type: application/json\r\n", "%s", json.c_str());
+      sendJsonResponse(c, hm, 200, json);
       return;
     }
 
@@ -309,7 +379,7 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
 
       Device* dev = DeviceManager::getInstance().getDevice(devId);
       if (!dev) {
-        mg_http_reply(c, 404, "Content-Type: application/json\r\n", "{\"error\":\"Device not found\"}\n");
+        sendJsonResponse(c, hm, 404, "{\"error\":\"Device not found\"}\n");
         return;
       }
 
@@ -317,13 +387,12 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
       if (!DeviceManager::getInstance().canUserAccessDevice(currentUser, *dev)) {
         Serial.printf("[AUTH-DENIED] User '%s' blocked from switching device '%s' (allowed: '%s')\n",
                       currentUser.username.c_str(), dev->id.c_str(), dev->allowedUsers.c_str());
-        mg_http_reply(c, 403, "Content-Type: application/json\r\n",
-                      "{\"error\":\"Permission denied: You do not have access to this device\"}\n");
+        sendJsonResponse(c, hm, 403, "{\"error\":\"Permission denied: You do not have access to this device\"}\n");
         return;
       }
 
       DeviceManager::getInstance().setDeviceState(devId, state, (int)val);
-      mg_http_reply(c, 200, "Content-Type: application/json\r\n", "{\"success\":true}\n");
+      sendJsonResponse(c, hm, 200, "{\"success\":true}\n");
       return;
     }
 
@@ -336,7 +405,7 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
         mg_match(hm->uri, mg_str("/api/wifi#"), NULL) ||
         mg_match(hm->uri, mg_str("/api/system#"), NULL)) {
       if (!currentUser.isAdmin()) {
-        mg_http_reply(c, 403, "Content-Type: application/json\r\n", "{\"error\":\"Admin privileges required\"}\n");
+        sendJsonResponse(c, hm, 403, "{\"error\":\"Admin privileges required\"}\n");
         return;
       }
     }
@@ -363,15 +432,19 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
       String allowed = getJsonString(hm->body, "$.allowedUsers");
       d.allowedUsers = allowed.length() ? allowed : "*";
 
+      bool alexa = true;
+      mg_json_get_bool(hm->body, "$.alexaEnabled", &alexa);
+      d.alexaEnabled = alexa;
+
       d.pwmChannel = -1;
       d.state = false;
       d.value = (d.type == DEV_DIMMER) ? 75 : 0;
 
       String err;
       if (DeviceManager::getInstance().addDevice(d, err)) {
-        mg_http_reply(c, 200, "Content-Type: application/json\r\n", "{\"success\":true}\n");
+        sendJsonResponse(c, hm, 200, "{\"success\":true}\n");
       } else {
-        mg_http_reply(c, 400, "Content-Type: application/json\r\n", "{\"error\":\"%s\"}\n", err.c_str());
+        sendJsonResponse(c, hm, 400, "{\"error\":\"" + err + "\"}\n");
       }
       return;
     }
@@ -398,15 +471,19 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
       String allowed = getJsonString(hm->body, "$.allowedUsers");
       d.allowedUsers = allowed.length() ? allowed : "*";
 
+      bool alexa = true;
+      mg_json_get_bool(hm->body, "$.alexaEnabled", &alexa);
+      d.alexaEnabled = alexa;
+
       d.pwmChannel = -1;
       d.state = false;
       d.value = 0;
 
       String err;
       if (DeviceManager::getInstance().updateDevice(d, err)) {
-        mg_http_reply(c, 200, "Content-Type: application/json\r\n", "{\"success\":true}\n");
+        sendJsonResponse(c, hm, 200, "{\"success\":true}\n");
       } else {
-        mg_http_reply(c, 400, "Content-Type: application/json\r\n", "{\"error\":\"%s\"}\n", err.c_str());
+        sendJsonResponse(c, hm, 400, "{\"error\":\"" + err + "\"}\n");
       }
       return;
     }
@@ -416,9 +493,9 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
       String devId = getJsonString(hm->body, "$.id");
       String err;
       if (DeviceManager::getInstance().deleteDevice(devId, err)) {
-        mg_http_reply(c, 200, "Content-Type: application/json\r\n", "{\"success\":true}\n");
+        sendJsonResponse(c, hm, 200, "{\"success\":true}\n");
       } else {
-        mg_http_reply(c, 400, "Content-Type: application/json\r\n", "{\"error\":\"%s\"}\n", err.c_str());
+        sendJsonResponse(c, hm, 400, "{\"error\":\"" + err + "\"}\n");
       }
       return;
     }
@@ -433,9 +510,9 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
 
       String err;
       if (DeviceManager::getInstance().addRoom(r, err)) {
-        mg_http_reply(c, 200, "Content-Type: application/json\r\n", "{\"success\":true}\n");
+        sendJsonResponse(c, hm, 200, "{\"success\":true}\n");
       } else {
-        mg_http_reply(c, 400, "Content-Type: application/json\r\n", "{\"error\":\"%s\"}\n", err.c_str());
+        sendJsonResponse(c, hm, 400, "{\"error\":\"" + err + "\"}\n");
       }
       return;
     }
@@ -445,9 +522,9 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
       String roomId = getJsonString(hm->body, "$.id");
       String err;
       if (DeviceManager::getInstance().deleteRoom(roomId, err)) {
-        mg_http_reply(c, 200, "Content-Type: application/json\r\n", "{\"success\":true}\n");
+        sendJsonResponse(c, hm, 200, "{\"success\":true}\n");
       } else {
-        mg_http_reply(c, 400, "Content-Type: application/json\r\n", "{\"error\":\"%s\"}\n", err.c_str());
+        sendJsonResponse(c, hm, 400, "{\"error\":\"" + err + "\"}\n");
       }
       return;
     }
@@ -455,7 +532,7 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
     // Users List
     if (mg_match(hm->uri, mg_str("/api/users"), NULL) && strncasecmp(hm->method.buf, "GET", 3) == 0) {
       String json = AuthManager::getInstance().getUsersJson() + "\n";
-      mg_http_reply(c, 200, "Content-Type: application/json\r\n", "%s", json.c_str());
+      sendJsonResponse(c, hm, 200, json);
       return;
     }
 
@@ -470,9 +547,9 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
 
       String err;
       if (AuthManager::getInstance().addUser(u, err)) {
-        mg_http_reply(c, 200, "Content-Type: application/json\r\n", "{\"success\":true}\n");
+        sendJsonResponse(c, hm, 200, "{\"success\":true}\n");
       } else {
-        mg_http_reply(c, 400, "Content-Type: application/json\r\n", "{\"error\":\"%s\"}\n", err.c_str());
+        sendJsonResponse(c, hm, 400, "{\"error\":\"" + err + "\"}\n");
       }
       return;
     }
@@ -488,9 +565,9 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
 
       String err;
       if (AuthManager::getInstance().updateUser(u, err)) {
-        mg_http_reply(c, 200, "Content-Type: application/json\r\n", "{\"success\":true}\n");
+        sendJsonResponse(c, hm, 200, "{\"success\":true}\n");
       } else {
-        mg_http_reply(c, 400, "Content-Type: application/json\r\n", "{\"error\":\"%s\"}\n", err.c_str());
+        sendJsonResponse(c, hm, 400, "{\"error\":\"" + err + "\"}\n");
       }
       return;
     }
@@ -500,9 +577,9 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
       String u = getJsonString(hm->body, "$.username");
       String err;
       if (AuthManager::getInstance().deleteUser(u, err)) {
-        mg_http_reply(c, 200, "Content-Type: application/json\r\n", "{\"success\":true}\n");
+        sendJsonResponse(c, hm, 200, "{\"success\":true}\n");
       } else {
-        mg_http_reply(c, 400, "Content-Type: application/json\r\n", "{\"error\":\"%s\"}\n", err.c_str());
+        sendJsonResponse(c, hm, 400, "{\"error\":\"" + err + "\"}\n");
       }
       return;
     }
@@ -510,14 +587,14 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
     // WiFi Status
     if (mg_match(hm->uri, mg_str("/api/wifi/status"), NULL)) {
       String json = WifiManager::getInstance().getStatusJson() + "\n";
-      mg_http_reply(c, 200, "Content-Type: application/json\r\n", "%s", json.c_str());
+      sendJsonResponse(c, hm, 200, json);
       return;
     }
 
     // WiFi Scan
     if (mg_match(hm->uri, mg_str("/api/wifi/scan"), NULL)) {
       String json = WifiManager::getInstance().scanNetworksJson() + "\n";
-      mg_http_reply(c, 200, "Content-Type: application/json\r\n", "%s", json.c_str());
+      sendJsonResponse(c, hm, 200, json);
       return;
     }
 
@@ -526,9 +603,9 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
       String ssid = getJsonString(hm->body, "$.ssid");
       String pass = getJsonString(hm->body, "$.password");
       if (WifiManager::getInstance().setStaCredentials(ssid, pass)) {
-        mg_http_reply(c, 200, "Content-Type: application/json\r\n", "{\"success\":true}\n");
+        sendJsonResponse(c, hm, 200, "{\"success\":true}\n");
       } else {
-        mg_http_reply(c, 400, "Content-Type: application/json\r\n", "{\"error\":\"Invalid SSID\"}\n");
+        sendJsonResponse(c, hm, 400, "{\"error\":\"Invalid SSID\"}\n");
       }
       return;
     }
@@ -536,13 +613,13 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
     // System Stats
     if (mg_match(hm->uri, mg_str("/api/system/stats"), NULL)) {
       String json = DeviceManager::getInstance().getSystemStatsJson() + "\n";
-      mg_http_reply(c, 200, "Content-Type: application/json\r\n", "%s", json.c_str());
+      sendJsonResponse(c, hm, 200, json);
       return;
     }
 
     // System Reboot
     if (mg_match(hm->uri, mg_str("/api/system/reboot"), NULL)) {
-      mg_http_reply(c, 200, "Content-Type: application/json\r\n", "{\"rebooting\":true}\n");
+      sendJsonResponse(c, hm, 200, "{\"rebooting\":true}\n");
       mg_timer_add(&server->_mgr, 1000, 0, [](void*) {
         esp_restart();
       }, NULL);
@@ -550,6 +627,10 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
     }
 
     // 404 Fallback
-    mg_http_reply(c, 404, "Content-Type: text/plain\r\n", "404 Not Found\n");
+    mg_http_reply(c, 404,
+                  "Content-Type: text/plain\r\n"
+                  "Access-Control-Allow-Origin: *\r\n"
+                  "Access-Control-Allow-Private-Network: true\r\n",
+                  "404 Not Found\n");
   }
 }

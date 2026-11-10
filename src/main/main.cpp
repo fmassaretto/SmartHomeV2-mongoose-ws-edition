@@ -5,6 +5,7 @@
 #include "auth_manager.h"
 #include "device_manager.h"
 #include "web_server.h"
+#include "alexa_manager.h"
 
 void setup() {
   Serial.begin(115200);
@@ -35,6 +36,9 @@ void setup() {
   // 5. Start Mongoose HTTP & WebSocket Web Server
   WebServer::getInstance().begin();
 
+  // 6. Initialize Alexa Echo Local Voice Assistant Bridge
+  AlexaManager::getInstance().begin();
+
   Serial.println("==================================================");
   Serial.printf(" [READY] Access Web UI / Android App at:\n");
   Serial.printf("   Direct AP:  http://%s\n", WifiManager::getInstance().getApIp().c_str());
@@ -51,6 +55,9 @@ void loop() {
 
   // Monitor and handle WiFi auto-reconnect
   WifiManager::getInstance().loop();
+
+  // Listen for local Alexa Echo SSDP discovery & events
+  AlexaManager::getInstance().loop();
 
   // Yield to FreeRTOS IDLE task to satisfy watchdog
   delay(1);
