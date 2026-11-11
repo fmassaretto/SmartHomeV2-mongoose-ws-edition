@@ -193,7 +193,14 @@ bool AlexaManager::isAlexaRequest(struct mg_http_message *hm) {
 }
 
 void AlexaManager::handleHttpRequest(struct mg_connection *c, struct mg_http_message *hm) {
-  Serial.printf("[ALEXA-HTTP] %.*s %.*s\n", (int)hm->method.len, hm->method.buf, (int)hm->uri.len, hm->uri.buf);
+  // Only log state mutations (PUT) or pairing/discovery to avoid UART buffer overflows during background polling
+  if (strncasecmp(hm->method.buf, "PUT", 3) == 0 ||
+      mg_match(hm->uri, mg_str("/description.xml"), NULL) ||
+      mg_match(hm->uri, mg_str("/api"), NULL) ||
+      mg_match(hm->uri, mg_str("/api/"), NULL) ||
+      mg_match(hm->uri, mg_str("/api/*/lights/new#"), NULL)) {
+    Serial.printf("[ALEXA-HTTP] %.*s %.*s\n", (int)hm->method.len, hm->method.buf, (int)hm->uri.len, hm->uri.buf);
+  }
 
   // 1. UPnP Description XML
   if (mg_match(hm->uri, mg_str("/description.xml"), NULL)) {

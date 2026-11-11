@@ -246,32 +246,6 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
 
     // --- Static Web UI & Manifest ---
     if (mg_match(hm->uri, mg_str("/"), NULL) || mg_match(hm->uri, mg_str("/index.html"), NULL)) {
-      // Check if accessed via mDNS (.local) - redirect to direct IP to avoid Chrome Private Network Access blocks
-      struct mg_str *host = mg_http_get_header(hm, "Host");
-      if (host) {
-        String hStr(host->buf, host->len);
-        if (hStr.indexOf(".local") >= 0) {
-          String targetIp;
-          char remIp[64];
-          mg_snprintf(remIp, sizeof(remIp), "%M", mg_print_ip, &c->rem);
-          if (strncmp(remIp, "192.168.4.", 10) == 0) {
-            targetIp = "192.168.4.1";
-          } else if (WiFi.status() == WL_CONNECTED && WiFi.localIP().toString() != "0.0.0.0") {
-            targetIp = WiFi.localIP().toString();
-          } else {
-            targetIp = "192.168.4.1";
-          }
-
-          String loc = "http://" + targetIp + "/";
-          String headers = "Location: " + loc + "\r\n"
-                           "Cache-Control: no-cache\r\n"
-                           "Access-Control-Allow-Origin: *\r\n"
-                           "Access-Control-Allow-Private-Network: true\r\n";
-          mg_http_reply(c, 307, headers.c_str(), "");
-          return;
-        }
-      }
-
       // Pre-allocate buffer to prevent multiple incremental reallocations
       mg_iobuf_resize(&c->send, INDEX_HTML_GZ_LEN + 256);
       mg_printf(c, "HTTP/1.1 200 OK\r\n"

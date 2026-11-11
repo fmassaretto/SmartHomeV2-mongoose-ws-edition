@@ -46,7 +46,11 @@ void WifiManager::setupCombinationMode() {
   // Set Dual Mode
   WiFi.mode(WIFI_AP_STA);
 
-  // Disable modem power saving so dual AP+STA radio doesn't drop handshake packets
+  // Set TX power to 15 dBm to prevent current spikes that cause voltage drops, UART framing errors & WPA2 drops
+  WiFi.setTxPower(WIFI_POWER_15dBm);
+
+  // Completely disable modem sleep to keep APB peripheral clock locked at 80MHz (eliminates UART baud glitches)
+  esp_wifi_set_ps(WIFI_PS_NONE);
   WiFi.setSleep(false);
 
   // Start SoftAP
@@ -88,6 +92,12 @@ void WifiManager::loop() {
       _staConnected = true;
       _staIp = WiFi.localIP().toString();
       _retryCount = 0;
+
+      // Lock APB clock and prevent power sags after connection established
+      esp_wifi_set_ps(WIFI_PS_NONE);
+      WiFi.setSleep(false);
+      WiFi.setTxPower(WIFI_POWER_15dBm);
+
       Serial.println("\n==================================================");
       Serial.printf("[WIFI] Station Connected! IP: %s (RSSI: %d dBm)\n",
                     _staIp.c_str(), WiFi.RSSI());
