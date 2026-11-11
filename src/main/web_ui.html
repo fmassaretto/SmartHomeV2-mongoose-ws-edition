@@ -61,6 +61,25 @@
     .badge-pin { background: rgba(245, 158, 11, 0.2); color: var(--warning); padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; }
     .btn-icon { background: none; border: none; color: var(--text); cursor: pointer; padding: 8px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
     .btn-icon:hover { background: var(--card-border); }
+    .btn-lang {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      cursor: pointer;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      transition: var(--transition);
+      user-select: none;
+    }
+    .btn-lang:hover {
+      background: var(--card-border);
+      border-color: var(--primary);
+    }
 
     /* Layout */
     .container { max-width: 1100px; margin: 0 auto; padding: 16px; width: 100%; flex: 1; }
@@ -274,6 +293,10 @@
     <div class="header-actions">
       <span id="wsBadge" class="badge badge-live">● Live</span>
       <span id="userBadge" class="badge badge-user" style="display:none;"></span>
+      <button class="btn-lang" id="langToggle" title="Mudar Idioma / Switch Language">
+        <span id="langFlag">🇧🇷</span>
+        <span id="langText">PT-BR</span>
+      </button>
       <button class="btn-icon" id="themeToggle" title="Toggle Theme">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
       </button>
@@ -288,30 +311,30 @@
 
     <!-- LOGIN SCREEN -->
     <div id="loginSection" class="auth-box">
-      <h2>Welcome Home</h2>
-      <p>Log in to access your room and device controls</p>
+      <h2 data-i18n="welcome_title">Welcome Home</h2>
+      <p data-i18n="welcome_subtitle">Log in to access your room and device controls</p>
       <form id="loginForm">
         <div class="form-group">
-          <label>Username</label>
-          <input type="text" id="loginUsername" class="input-field" placeholder="e.g. alice, bob, admin" required>
+          <label data-i18n="username">Username</label>
+          <input type="text" id="loginUsername" class="input-field" placeholder="e.g. alice, bob, admin" data-i18n-placeholder="username_placeholder" required>
         </div>
         <div class="form-group">
-          <label>Password</label>
+          <label data-i18n="password">Password</label>
           <input type="password" id="loginPassword" class="input-field" placeholder="••••••••" required>
         </div>
         <button type="submit" class="btn" id="loginSubmitBtn">
-          <span>Sign In</span>
+          <span data-i18n="sign_in">Sign In</span>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </button>
       </form>
       <div id="loginError" style="color:var(--danger); font-size:0.85rem; margin-top:12px; display:none;"></div>
       
       <div class="quick-users">
-        <span>Quick Profiles (Demo Setup):</span>
+        <span data-i18n="quick_profiles">Quick Profiles (Demo Setup):</span>
         <div style="margin-top:6px;">
-          <div class="quick-pill" onclick="quickFill('admin','admin123')">🔑 Admin (Full Access)</div>
-          <div class="quick-pill" onclick="quickFill('alice','alice123')">🛏️ Alice (Bed 1 + Living)</div>
-          <div class="quick-pill" onclick="quickFill('bob','bob123')">🛏️ Bob (Bed 2 + Living)</div>
+          <div class="quick-pill" id="quickPillAdmin" onclick="quickFill('admin','admin123')" data-i18n="admin_profile">🔑 Admin (Full Access)</div>
+          <div class="quick-pill" id="quickPillAlice" onclick="quickFill('alice','alice123')" data-i18n="alice_profile">🛏️ Alice (Bed 1 + Living)</div>
+          <div class="quick-pill" id="quickPillBob" onclick="quickFill('bob','bob123')" data-i18n="bob_profile">🛏️ Bob (Bed 2 + Living)</div>
         </div>
       </div>
     </div>
@@ -322,23 +345,23 @@
       <!-- Real-time Sensors Header -->
       <div class="stats-grid">
         <div class="stat-card">
-          <span class="label">Temperature</span>
+          <span class="label" data-i18n="temp">Temperature</span>
           <span class="val" id="statTemp">-- °C</span>
         </div>
         <div class="stat-card">
-          <span class="label">Humidity</span>
+          <span class="label" data-i18n="hum">Humidity</span>
           <span class="val" id="statHum">-- %</span>
         </div>
         <div class="stat-card">
-          <span class="label">Motion</span>
+          <span class="label" data-i18n="motion">Motion</span>
           <span class="val" id="statMotion" style="font-size:1.1rem; color:var(--text-muted);">Clear</span>
         </div>
         <div class="stat-card">
-          <span class="label">Power Load</span>
+          <span class="label" data-i18n="power_load">Power Load</span>
           <span class="val" id="statPower">-- W</span>
         </div>
         <div class="stat-card">
-          <span class="label">Active Devices</span>
+          <span class="label" data-i18n="active_devices">Active Devices</span>
           <span class="val" id="statActive">0</span>
         </div>
       </div>
@@ -359,28 +382,28 @@
         <!-- Controls & ESP32 Pin Management -->
         <div class="admin-section">
           <h3>
-            <span>Hardware Controls & Pin Mapping</span>
+            <span data-i18n="hw_controls_title">Hardware Controls & Pin Mapping</span>
             <div style="display:flex; gap:8px;">
-              <button class="btn btn-sm btn-outline" onclick="openAddRoomModal()">+ Add Room</button>
-              <button class="btn btn-sm" onclick="openAddControlModal()">+ Add Control / Pin</button>
+              <button class="btn btn-sm btn-outline" onclick="openAddRoomModal()" data-i18n="add_room">+ Add Room</button>
+              <button class="btn btn-sm" onclick="openAddControlModal()" data-i18n="add_control">+ Add Control / Pin</button>
             </div>
           </h3>
-          <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:16px;">
+          <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:16px;" data-i18n="hw_controls_sub">
             Create lights, dimmers, fans, or relays and map them directly to an ESP32 GPIO pin. Changes are saved to ESP32 flash immediately.
           </p>
           <div style="overflow-x:auto;">
             <table class="user-table">
               <thead>
                 <tr>
-                  <th>Control Name</th>
-                  <th>Room</th>
-                  <th>Type</th>
-                  <th>ESP32 Pin</th>
-                  <th>Logic</th>
-                  <th>Access</th>
-                  <th>Alexa</th>
-                  <th>Live State</th>
-                  <th>Actions</th>
+                  <th data-i18n="col_name">Control Name</th>
+                  <th data-i18n="col_room">Room</th>
+                  <th data-i18n="col_type">Type</th>
+                  <th data-i18n="col_pin">ESP32 Pin</th>
+                  <th data-i18n="col_logic">Logic</th>
+                  <th data-i18n="col_access">Access</th>
+                  <th data-i18n="col_alexa">Alexa</th>
+                  <th data-i18n="col_state">Live State</th>
+                  <th data-i18n="col_actions">Actions</th>
                 </tr>
               </thead>
               <tbody id="controlTableBody">
@@ -393,21 +416,21 @@
         <!-- User Management -->
         <div class="admin-section">
           <h3>
-            <span>House Profiles & Permissions</span>
-            <button class="btn btn-sm" onclick="openAddUserModal()">+ Add Person</button>
+            <span data-i18n="profiles_title">House Profiles & Permissions</span>
+            <button class="btn btn-sm" onclick="openAddUserModal()" data-i18n="add_person">+ Add Person</button>
           </h3>
-          <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:16px;">
+          <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:16px;" data-i18n="profiles_sub">
             Configure which rooms each family member can control from their phone or browser.
           </p>
           <div style="overflow-x:auto;">
             <table class="user-table">
               <thead>
                 <tr>
-                  <th>Person</th>
-                  <th>Username</th>
-                  <th>Role</th>
-                  <th>Allowed Rooms</th>
-                  <th>Actions</th>
+                  <th data-i18n="col_person">Person</th>
+                  <th data-i18n="col_username">Username</th>
+                  <th data-i18n="col_role">Role</th>
+                  <th data-i18n="col_allowed_rooms">Allowed Rooms</th>
+                  <th data-i18n="col_actions">Actions</th>
                 </tr>
               </thead>
               <tbody id="userTableBody">
@@ -419,34 +442,34 @@
 
         <!-- WiFi Combination Mode Settings -->
         <div class="admin-section">
-          <h3>WiFi Combination Mode (AP + STA)</h3>
-          <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:16px;">
+          <h3 data-i18n="wifi_title">WiFi Combination Mode (AP + STA)</h3>
+          <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:16px;" data-i18n="wifi_sub">
             ESP32 broadcasts its own Access Point for direct connection, and connects to your home router.
           </p>
           <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px;">
             <div>
               <div class="form-group">
-                <label>SoftAP Network (Direct Fallback)</label>
+                <label data-i18n="softap_net">SoftAP Network (Direct Fallback)</label>
                 <input type="text" id="wifiApSsid" class="input-field" readonly>
               </div>
               <div class="form-group">
-                <label>SoftAP IP</label>
+                <label data-i18n="softap_ip">SoftAP IP</label>
                 <input type="text" id="wifiApIp" class="input-field" readonly>
               </div>
-              <button class="btn btn-outline" onclick="scanWifi()">Scan Home Wi-Fi Networks</button>
+              <button class="btn btn-outline" onclick="scanWifi()" data-i18n="scan_wifi">Scan Home Wi-Fi Networks</button>
               <div id="scanResults" style="margin-top:10px; max-height:160px; overflow-y:auto;"></div>
             </div>
             <div>
               <form id="wifiForm">
                 <div class="form-group">
-                  <label>Home Router SSID</label>
-                  <input type="text" id="wifiStaSsid" class="input-field" placeholder="Enter home Wi-Fi name" required>
+                  <label data-i18n="router_ssid">Home Router SSID</label>
+                  <input type="text" id="wifiStaSsid" class="input-field" placeholder="Enter home Wi-Fi name" data-i18n-placeholder="router_ssid_placeholder" required>
                 </div>
                 <div class="form-group">
-                  <label>Home Router Password</label>
-                  <input type="password" id="wifiStaPass" class="input-field" placeholder="Enter home Wi-Fi password">
+                  <label data-i18n="router_pass">Home Router Password</label>
+                  <input type="password" id="wifiStaPass" class="input-field" placeholder="Enter home Wi-Fi password" data-i18n-placeholder="router_pass_placeholder">
                 </div>
-                <button type="submit" class="btn">Connect & Save to ESP32 Flash</button>
+                <button type="submit" class="btn" data-i18n="btn_save_wifi">Connect & Save to ESP32 Flash</button>
               </form>
             </div>
           </div>
@@ -454,19 +477,19 @@
 
         <!-- System Stats & OTA Firmware Update -->
         <div class="admin-section">
-          <h3>System & OTA Firmware Update</h3>
+          <h3 data-i18n="sys_title">System & OTA Firmware Update</h3>
           <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:16px; margin-bottom:16px;">
             <div>
-              <p style="font-size:0.85rem; color:var(--text-muted);">Uptime: <strong id="sysUptime" style="color:var(--text)">--</strong></p>
-              <p style="font-size:0.85rem; color:var(--text-muted);">Free RAM: <strong id="sysHeap" style="color:var(--text)">--</strong></p>
-              <p style="font-size:0.85rem; color:var(--text-muted);">Active Partition: <strong id="sysOta" style="color:var(--text)">--</strong></p>
-              <p style="font-size:0.85rem; color:var(--text-muted);">Firmware Version: <strong id="sysVer" style="color:var(--text)">2.0.0</strong></p>
-              <button class="btn btn-outline btn-sm" style="margin-top:10px;" onclick="rebootEsp()">Reboot ESP32</button>
+              <p style="font-size:0.85rem; color:var(--text-muted);"><span data-i18n="uptime">Uptime:</span> <strong id="sysUptime" style="color:var(--text)">--</strong></p>
+              <p style="font-size:0.85rem; color:var(--text-muted);"><span data-i18n="free_ram">Free RAM:</span> <strong id="sysHeap" style="color:var(--text)">--</strong></p>
+              <p style="font-size:0.85rem; color:var(--text-muted);"><span data-i18n="active_partition">Active Partition:</span> <strong id="sysOta" style="color:var(--text)">--</strong></p>
+              <p style="font-size:0.85rem; color:var(--text-muted);"><span data-i18n="firmware_ver">Firmware Version:</span> <strong id="sysVer" style="color:var(--text)">2.0.0</strong></p>
+              <button class="btn btn-outline btn-sm" style="margin-top:10px;" onclick="rebootEsp()" data-i18n="btn_reboot">Reboot ESP32</button>
             </div>
             <div>
-              <label style="font-size:0.8rem; font-weight:600; color:var(--text-muted); text-transform:uppercase;">Flash New Firmware (.bin)</label>
+              <label style="font-size:0.8rem; font-weight:600; color:var(--text-muted); text-transform:uppercase;" data-i18n="flash_firmware_label">Flash New Firmware (.bin)</label>
               <input type="file" id="otaFile" accept=".bin" class="input-field" style="margin:8px 0;">
-              <button class="btn" id="otaUploadBtn" onclick="uploadOta()">Upload & Update Firmware</button>
+              <button class="btn" id="otaUploadBtn" onclick="uploadOta()" data-i18n="btn_upload_ota">Upload & Update Firmware</button>
               <div id="otaProgress" style="display:none; margin-top:10px;">
                 <div style="height:6px; background:rgba(255,255,255,0.1); border-radius:3px; overflow:hidden;">
                   <div id="otaBar" style="height:100%; width:0%; background:var(--primary); transition:width 0.2s;"></div>
@@ -485,32 +508,32 @@
   <!-- Add/Edit Control Modal -->
   <div class="modal-overlay" id="controlModal">
     <div class="modal">
-      <div class="modal-title" id="controlModalTitle">Add New Control</div>
+      <div class="modal-title" id="controlModalTitle" data-i18n="modal_add_control">Add New Control</div>
       <form id="controlModalForm">
         <input type="hidden" id="ctrlModalId" value="">
         <div class="form-group">
-          <label>Control Name (e.g. Garden Light, Desk Fan)</label>
-          <input type="text" id="ctrlModalName" class="input-field" placeholder="Control Name" required>
+          <label data-i18n="control_name_label">Control Name (e.g. Garden Light, Desk Fan)</label>
+          <input type="text" id="ctrlModalName" class="input-field" placeholder="Control Name" data-i18n-placeholder="control_name_placeholder" required>
         </div>
         <div class="form-group">
-          <label>Room Location</label>
+          <label data-i18n="room_location_label">Room Location</label>
           <select id="ctrlModalRoom" class="input-field">
             <!-- Populated dynamically -->
           </select>
         </div>
         <div class="form-group">
-          <label>Control Type</label>
+          <label data-i18n="control_type_label">Control Type</label>
           <select id="ctrlModalType" class="input-field">
-            <option value="0">💡 Light / Switch (On/Off)</option>
-            <option value="1">🔆 Dimmer (0-100% PWM Brightness)</option>
-            <option value="2">🌀 Fan (Ceiling / Exhaust)</option>
-            <option value="3">🔌 Appliance Relay / Socket</option>
+            <option value="0" data-i18n="type_light">💡 Light / Switch (On/Off)</option>
+            <option value="1" data-i18n="type_dimmer">🔆 Dimmer (0-100% PWM Brightness)</option>
+            <option value="2" data-i18n="type_fan">🌀 Fan (Ceiling / Exhaust)</option>
+            <option value="3" data-i18n="type_relay">🔌 Appliance Relay / Socket</option>
           </select>
         </div>
         <div class="form-group">
-          <label>ESP32 GPIO Pin</label>
+          <label data-i18n="esp32_pin_label">ESP32 GPIO Pin</label>
           <select id="ctrlModalPin" class="input-field">
-            <option value="-1">Virtual (No physical pin, simulation only)</option>
+            <option value="-1" data-i18n="pin_virtual">Virtual (No physical pin, simulation only)</option>
             <option value="2">GPIO 2 (Built-in Blue LED / Standard)</option>
             <option value="4">GPIO 4</option>
             <option value="5">GPIO 5</option>
@@ -534,34 +557,34 @@
         </div>
         <div class="form-group">
           <label class="checkbox-item" style="font-weight:600; text-transform:none;">
-            <input type="checkbox" id="ctrlModalInverted"> Inverted Logic (Active-LOW, standard for relay modules)
+            <input type="checkbox" id="ctrlModalInverted"> <span data-i18n="inverted_logic_label">Inverted Logic (Active-LOW, standard for relay modules)</span>
           </label>
         </div>
         <div class="form-group">
           <label class="checkbox-item" style="font-weight:600; text-transform:none;">
-            <input type="checkbox" id="ctrlModalAlexa" checked> 🎙️ Discoverable & Controllable by Alexa (Voice Control)
+            <input type="checkbox" id="ctrlModalAlexa" checked> <span data-i18n="alexa_label">🎙️ Discoverable & Controllable by Alexa (Voice Control)</span>
           </label>
         </div>
         <div class="form-group">
-          <label>Allowed Users</label>
+          <label data-i18n="allowed_users_label">Allowed Users</label>
           <div style="display:flex; gap:16px; margin-bottom:8px;">
-            <label class="checkbox-item"><input type="radio" name="ctrlAccessMode" id="ctrlAccessAll" value="all" checked onchange="toggleAllowedUsersField()"> Everyone (no restriction)</label>
-            <label class="checkbox-item"><input type="radio" name="ctrlAccessMode" id="ctrlAccessSpecific" value="specific" onchange="toggleAllowedUsersField()"> Specific users only</label>
+            <label class="checkbox-item"><input type="radio" name="ctrlAccessMode" id="ctrlAccessAll" value="all" checked onchange="toggleAllowedUsersField()"> <span data-i18n="radio_everyone">Everyone (no restriction)</span></label>
+            <label class="checkbox-item"><input type="radio" name="ctrlAccessMode" id="ctrlAccessSpecific" value="specific" onchange="toggleAllowedUsersField()"> <span data-i18n="radio_specific">Specific users only</span></label>
           </div>
           <div id="ctrlAllowedUsersWrap" style="display:none;">
             <div class="combobox-container" id="ctrlUserCombobox">
               <div class="combobox-trigger input-field" id="ctrlAllowedTrigger" tabindex="0" onclick="toggleAllowedUserDropdown(event)">
                 <div id="ctrlAllowedSelectedTags" class="combobox-tags">
-                  <span class="combobox-placeholder">Select allowed users...</span>
+                  <span class="combobox-placeholder" data-i18n="select_users_placeholder">Select allowed users...</span>
                 </div>
                 <span class="combobox-arrow" id="ctrlAllowedArrow">▼</span>
               </div>
               <div class="combobox-dropdown" id="ctrlAllowedDropdown" style="display:none;" onclick="event.stopPropagation()">
                 <div class="combobox-header">
-                  <span style="color:var(--text-muted);" id="ctrlAllowedUserCount">Users</span>
+                  <span style="color:var(--text-muted);" id="ctrlAllowedUserCount" data-i18n="users_header">Users</span>
                   <div style="display:flex; gap:12px;">
-                    <span class="combobox-link" onclick="selectAllAllowedUsers(true)">Select All</span>
-                    <span class="combobox-link" onclick="selectAllAllowedUsers(false)">Clear</span>
+                    <span class="combobox-link" onclick="selectAllAllowedUsers(true)" data-i18n="select_all">Select All</span>
+                    <span class="combobox-link" onclick="selectAllAllowedUsers(false)" data-i18n="clear">Clear</span>
                   </div>
                 </div>
                 <div class="combobox-options" id="ctrlAllowedUserOptions">
@@ -569,12 +592,12 @@
                 </div>
               </div>
             </div>
-            <p style="font-size:0.75rem; color:var(--text-muted); margin-top:6px;">Select which registered users are granted control of this device.</p>
+            <p style="font-size:0.75rem; color:var(--text-muted); margin-top:6px;" data-i18n="users_hint">Select which registered users are granted control of this device.</p>
           </div>
         </div>
         <div style="display:flex; gap:10px; margin-top:20px;">
-          <button type="button" class="btn btn-outline" onclick="closeControlModal()">Cancel</button>
-          <button type="submit" class="btn">Save & Map Pin</button>
+          <button type="button" class="btn btn-outline" onclick="closeControlModal()" data-i18n="cancel">Cancel</button>
+          <button type="submit" class="btn" data-i18n="save_map_pin">Save & Map Pin</button>
         </div>
       </form>
     </div>
@@ -583,19 +606,19 @@
   <!-- Add Room Modal -->
   <div class="modal-overlay" id="roomModal">
     <div class="modal">
-      <div class="modal-title">Add New Room</div>
+      <div class="modal-title" data-i18n="modal_add_room">Add New Room</div>
       <form id="roomModalForm">
         <div class="form-group">
-          <label>Room Name (e.g. Garage, Terrace, Office)</label>
-          <input type="text" id="roomModalName" class="input-field" placeholder="e.g. Garage" required>
+          <label data-i18n="room_name_label">Room Name (e.g. Garage, Terrace, Office)</label>
+          <input type="text" id="roomModalName" class="input-field" placeholder="e.g. Garage" data-i18n-placeholder="room_name_placeholder" required>
         </div>
         <div class="form-group">
-          <label>Room Unique ID (slug)</label>
-          <input type="text" id="roomModalId" class="input-field" placeholder="e.g. garage" required>
+          <label data-i18n="room_slug_label">Room Unique ID (slug)</label>
+          <input type="text" id="roomModalId" class="input-field" placeholder="e.g. garage" data-i18n-placeholder="room_slug_placeholder" required>
         </div>
         <div style="display:flex; gap:10px; margin-top:20px;">
-          <button type="button" class="btn btn-outline" onclick="closeRoomModal()">Cancel</button>
-          <button type="submit" class="btn">Add Room</button>
+          <button type="button" class="btn btn-outline" onclick="closeRoomModal()" data-i18n="cancel">Cancel</button>
+          <button type="submit" class="btn" data-i18n="btn_add_room">Add Room</button>
         </div>
       </form>
     </div>
@@ -604,37 +627,37 @@
   <!-- Add/Edit User Modal -->
   <div class="modal-overlay" id="userModal">
     <div class="modal">
-      <div class="modal-title" id="userModalTitle">Add New Person</div>
+      <div class="modal-title" id="userModalTitle" data-i18n="modal_add_person">Add New Person</div>
       <form id="userModalForm">
         <input type="hidden" id="modalIsEdit" value="0">
         <div class="form-group">
-          <label>Display Name (e.g. Sister, Mom, Guest)</label>
-          <input type="text" id="modalDisplayName" class="input-field" placeholder="Display Name" required>
+          <label data-i18n="display_name_label">Display Name (e.g. Sister, Mom, Guest)</label>
+          <input type="text" id="modalDisplayName" class="input-field" placeholder="Display Name" data-i18n-placeholder="display_name_placeholder" required>
         </div>
         <div class="form-group">
-          <label>Username</label>
-          <input type="text" id="modalUsername" class="input-field" placeholder="username" required>
+          <label data-i18n="username">Username</label>
+          <input type="text" id="modalUsername" class="input-field" placeholder="username" data-i18n-placeholder="username" required>
         </div>
         <div class="form-group">
-          <label>Password</label>
+          <label data-i18n="password">Password</label>
           <input type="password" id="modalPassword" class="input-field" placeholder="••••••••">
         </div>
         <div class="form-group">
-          <label>Role</label>
+          <label data-i18n="role_label">Role</label>
           <select id="modalRole" class="input-field" onchange="toggleRoomCheckboxes()">
-            <option value="user">Regular User (Permission Restricted)</option>
-            <option value="admin">Administrator (Full Access)</option>
+            <option value="user" data-i18n="role_user">Regular User (Permission Restricted)</option>
+            <option value="admin" data-i18n="role_admin">Administrator (Full Access)</option>
           </select>
         </div>
         <div class="form-group" id="roomPermsGroup">
-          <label>Allowed Rooms</label>
+          <label data-i18n="allowed_rooms_label">Allowed Rooms</label>
           <div class="checkbox-group" id="userModalRoomCheckboxes">
             <!-- Dynamically populated from all current rooms -->
           </div>
         </div>
         <div style="display:flex; gap:10px; margin-top:20px;">
-          <button type="button" class="btn btn-outline" onclick="closeUserModal()">Cancel</button>
-          <button type="submit" class="btn">Save Person</button>
+          <button type="button" class="btn btn-outline" onclick="closeUserModal()" data-i18n="cancel">Cancel</button>
+          <button type="submit" class="btn" data-i18n="btn_save_person">Save Person</button>
         </div>
       </form>
     </div>
@@ -644,11 +667,11 @@
   <div class="bottom-nav" id="bottomNav" style="display:none;">
     <a class="nav-item active" onclick="switchMobileTab('controls')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-      <span>Controls</span>
+      <span data-i18n="nav_controls">Controls</span>
     </a>
     <a class="nav-item" id="adminMobileTab" style="display:none;" onclick="switchMobileTab('admin')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      <span>Settings</span>
+      <span data-i18n="nav_settings">Settings</span>
     </a>
   </div>
 
@@ -661,6 +684,381 @@
     let systemUsers = [];
     let selectedAllowedUsers = new Set();
     let ws = null;
+
+    // Internationalization (i18n) - English and Brazilian Portuguese
+    let currentLang = localStorage.getItem('smarthome_lang') || 
+                      ((navigator.language && navigator.language.toLowerCase().startsWith('pt')) ? 'pt' : 'en');
+
+    const TRANSLATIONS = {
+      en: {
+        lang_flag: "🇺🇸",
+        lang_code: "EN",
+        lang_title: "Mudar para Português (PT-BR)",
+        live_online: "● Live",
+        live_offline: "○ Offline",
+        welcome_title: "Welcome Home",
+        welcome_subtitle: "Log in to access your room and device controls",
+        username: "Username",
+        username_placeholder: "e.g. alice, bob, admin",
+        password: "Password",
+        sign_in: "Sign In",
+        quick_profiles: "Quick Profiles (Demo Setup):",
+        admin_profile: "🔑 Admin (Full Access)",
+        alice_profile: "🛏️ Alice (Bed 1 + Living)",
+        bob_profile: "🛏️ Bob (Bed 2 + Living)",
+        login_err_connect: "Cannot connect to ESP32 Hub",
+        login_err_invalid: "Invalid username or password",
+        temp: "Temperature",
+        hum: "Humidity",
+        motion: "Motion",
+        motion_clear: "Clear",
+        motion_detected: "Detected!",
+        power_load: "Power Load",
+        active_devices: "Active Devices",
+        all_allowed: "All Allowed",
+        fan_speed: "Fan Speed",
+        brightness: "Brightness",
+        no_devices: "No devices available in this room for your account.",
+        hw_controls_title: "Hardware Controls & Pin Mapping",
+        hw_controls_sub: "Create lights, dimmers, fans, or relays and map them directly to an ESP32 GPIO pin. Changes are saved to ESP32 flash immediately.",
+        add_room: "+ Add Room",
+        add_control: "+ Add Control / Pin",
+        col_name: "Control Name",
+        col_room: "Room",
+        col_type: "Type",
+        col_pin: "ESP32 Pin",
+        col_logic: "Logic",
+        col_access: "Access",
+        col_alexa: "Alexa",
+        col_state: "Live State",
+        col_actions: "Actions",
+        logic_low: "Active-LOW",
+        logic_high: "Active-HIGH",
+        everyone: "Everyone",
+        yes: "Yes",
+        no: "No",
+        toggle: "Toggle",
+        edit: "Edit",
+        delete: "Delete",
+        profiles_title: "House Profiles & Permissions",
+        profiles_sub: "Configure which rooms each family member can control from their phone or browser.",
+        add_person: "+ Add Person",
+        col_person: "Person",
+        col_username: "Username",
+        col_role: "Role",
+        col_allowed_rooms: "Allowed Rooms",
+        all_rooms: "All Rooms",
+        wifi_title: "WiFi Combination Mode (AP + STA)",
+        wifi_sub: "ESP32 broadcasts its own Access Point for direct connection, and connects to your home router.",
+        softap_net: "SoftAP Network (Direct Fallback)",
+        softap_ip: "SoftAP IP",
+        scan_wifi: "Scan Home Wi-Fi Networks",
+        scanning: "Scanning available networks...",
+        scan_failed: "Scan failed",
+        no_networks: "No networks found",
+        router_ssid: "Home Router SSID",
+        router_ssid_placeholder: "Enter home Wi-Fi name",
+        router_pass: "Home Router Password",
+        router_pass_placeholder: "Enter home Wi-Fi password",
+        btn_save_wifi: "Connect & Save to ESP32 Flash",
+        wifi_saved_alert: "Wi-Fi credentials saved! ESP32 will now connect to home router in combination mode.",
+        sys_title: "System & OTA Firmware Update",
+        uptime: "Uptime:",
+        free_ram: "Free RAM:",
+        active_partition: "Active Partition:",
+        firmware_ver: "Firmware Version:",
+        btn_reboot: "Reboot ESP32",
+        flash_firmware_label: "Flash New Firmware (.bin)",
+        btn_upload_ota: "Upload & Update Firmware",
+        uploading: "Uploading firmware...",
+        upload_complete: "Upload complete! Rebooting ESP32 into new firmware...",
+        upload_failed: "Firmware update failed: ",
+        modal_add_control: "Add New Control & Map Pin",
+        modal_edit_control: "Edit Control: ",
+        control_name_label: "Control Name (e.g. Garden Light, Desk Fan)",
+        control_name_placeholder: "Control Name",
+        room_location_label: "Room Location",
+        control_type_label: "Control Type",
+        type_light: "💡 Light / Switch (On/Off)",
+        type_dimmer: "🔆 Dimmer (0-100% PWM Brightness)",
+        type_fan: "🌀 Fan (Ceiling / Exhaust)",
+        type_relay: "🔌 Appliance Relay / Socket",
+        esp32_pin_label: "ESP32 GPIO Pin",
+        pin_virtual: "Virtual (No physical pin, simulation only)",
+        inverted_logic_label: "Inverted Logic (Active-LOW, standard for relay modules)",
+        alexa_label: "🎙️ Discoverable & Controllable by Alexa (Voice Control)",
+        allowed_users_label: "Allowed Users",
+        radio_everyone: "Everyone (no restriction)",
+        radio_specific: "Specific users only",
+        select_users_placeholder: "Select allowed users...",
+        select_all: "Select All",
+        clear: "Clear",
+        users_header: "Users",
+        users_hint: "Select which registered users are granted control of this device.",
+        cancel: "Cancel",
+        save_map_pin: "Save & Map Pin",
+        modal_add_room: "Add New Room",
+        room_name_label: "Room Name (e.g. Garage, Terrace, Office)",
+        room_name_placeholder: "e.g. Garage",
+        room_slug_label: "Room Unique ID (slug)",
+        room_slug_placeholder: "e.g. garage",
+        btn_add_room: "Add Room",
+        modal_add_person: "Add New Person",
+        modal_edit_person: "Edit Profile: ",
+        display_name_label: "Display Name (e.g. Sister, Mom, Guest)",
+        display_name_placeholder: "Display Name",
+        role_label: "Role",
+        role_user: "Regular User (Permission Restricted)",
+        role_admin: "Administrator (Full Access)",
+        allowed_rooms_label: "Allowed Rooms",
+        btn_save_person: "Save Person",
+        nav_controls: "Controls",
+        nav_settings: "Settings",
+        confirm_del_control: "Are you sure you want to delete this control? The assigned ESP32 pin will be freed.",
+        confirm_del_user: "Are you sure you want to delete profile '{u}'?",
+        confirm_reboot: "Reboot the ESP32 Hub now?",
+        rebooting_alert: "Reboot command sent. Reconnecting in 5 seconds...",
+        ota_select_bin: "Please choose a .bin firmware file",
+        perm_denied: "Permission denied: You do not have access to this device",
+        select_room_min: "Please select at least 1 room for this person.",
+        select_user_min: "Please select at least one user from the combobox, or select 'Everyone'."
+      },
+      pt: {
+        lang_flag: "🇧🇷",
+        lang_code: "PT-BR",
+        lang_title: "Switch to English (EN)",
+        live_online: "● Ao Vivo",
+        live_offline: "○ Offline",
+        welcome_title: "Bem-vindo ao Lar",
+        welcome_subtitle: "Entre para controlar seus cômodos e dispositivos",
+        username: "Usuário",
+        username_placeholder: "ex: alice, bob, admin",
+        password: "Senha",
+        sign_in: "Entrar",
+        quick_profiles: "Perfis Rápidos (Demonstração):",
+        admin_profile: "🔑 Admin (Acesso Total)",
+        alice_profile: "🛏️ Alice (Quarto 1 + Sala)",
+        bob_profile: "🛏️ Bob (Quarto 2 + Sala)",
+        login_err_connect: "Não foi possível conectar ao Hub ESP32",
+        login_err_invalid: "Usuário ou senha inválidos",
+        temp: "Temperatura",
+        hum: "Umidade",
+        motion: "Movimento",
+        motion_clear: "Livre",
+        motion_detected: "Detectado!",
+        power_load: "Carga Elétrica",
+        active_devices: "Dispositivos Ativos",
+        all_allowed: "Todos Permitidos",
+        fan_speed: "Velocidade do Ventilador",
+        brightness: "Brilho",
+        no_devices: "Nenhum dispositivo disponível neste cômodo para sua conta.",
+        hw_controls_title: "Controles de Hardware e Pinos GPIO",
+        hw_controls_sub: "Crie luzes, dimmers, ventiladores ou relés e mapeie diretamente a um pino GPIO do ESP32. As alterações são salvas na memória flash do ESP32 imediatamente.",
+        add_room: "+ Adicionar Cômodo",
+        add_control: "+ Adicionar Controle / Pino",
+        col_name: "Nome do Controle",
+        col_room: "Cômodo",
+        col_type: "Tipo",
+        col_pin: "Pino ESP32",
+        col_logic: "Lógica",
+        col_access: "Acesso",
+        col_alexa: "Alexa",
+        col_state: "Estado Atual",
+        col_actions: "Ações",
+        logic_low: "Ativo-BAIXO",
+        logic_high: "Ativo-ALTO",
+        everyone: "Todos",
+        yes: "Sim",
+        no: "Não",
+        toggle: "Alternar",
+        edit: "Editar",
+        delete: "Excluir",
+        profiles_title: "Perfis da Casa e Permissões",
+        profiles_sub: "Configure quais cômodos cada membro da família pode controlar em seu telefone ou navegador.",
+        add_person: "+ Adicionar Pessoa",
+        col_person: "Pessoa",
+        col_username: "Usuário",
+        col_role: "Função",
+        col_allowed_rooms: "Cômodos Permitidos",
+        all_rooms: "Todos os Cômodos",
+        wifi_title: "Modo Combinado Wi-Fi (AP + STA)",
+        wifi_sub: "O ESP32 transmite seu próprio Ponto de Acesso para conexão direta e se conecta ao roteador da sua casa.",
+        softap_net: "Rede SoftAP (Conexão Direta)",
+        softap_ip: "IP do SoftAP",
+        scan_wifi: "Escanear Redes Wi-Fi",
+        scanning: "Escaneando redes disponíveis...",
+        scan_failed: "Falha ao escanear",
+        no_networks: "Nenhuma rede encontrada",
+        router_ssid: "Nome da Rede Wi-Fi (SSID)",
+        router_ssid_placeholder: "Digite o nome da rede Wi-Fi",
+        router_pass: "Senha do Wi-Fi",
+        router_pass_placeholder: "Digite a senha da rede Wi-Fi",
+        btn_save_wifi: "Conectar e Salvar na Flash do ESP32",
+        wifi_saved_alert: "Credenciais de Wi-Fi salvas! O ESP32 agora se conectará ao roteador no modo combinado.",
+        sys_title: "Sistema e Atualização de Firmware OTA",
+        uptime: "Tempo Ativo:",
+        free_ram: "Memória RAM Livre:",
+        active_partition: "Partição Ativa:",
+        firmware_ver: "Versão do Firmware:",
+        btn_reboot: "Reiniciar ESP32",
+        flash_firmware_label: "Gravar Novo Firmware (.bin)",
+        btn_upload_ota: "Enviar e Atualizar Firmware",
+        uploading: "Enviando firmware...",
+        upload_complete: "Upload concluído! Reiniciando o ESP32 no novo firmware...",
+        upload_failed: "Falha na atualização do firmware: ",
+        modal_add_control: "Adicionar Novo Controle e Mapear Pino",
+        modal_edit_control: "Editar Controle: ",
+        control_name_label: "Nome do Controle (ex: Luz do Jardim, Ventilador de Mesa)",
+        control_name_placeholder: "Nome do Controle",
+        room_location_label: "Localização / Cômodo",
+        control_type_label: "Tipo de Controle",
+        type_light: "💡 Lâmpada / Interruptor (Liga/Desliga)",
+        type_dimmer: "🔆 Dimmer (Brilho PWM 0-100%)",
+        type_fan: "🌀 Ventilador (Teto / Exaustor)",
+        type_relay: "🔌 Relé de Eletrodoméstico / Tomada",
+        esp32_pin_label: "Pino GPIO do ESP32",
+        pin_virtual: "Virtual (Sem pino físico, apenas simulação)",
+        inverted_logic_label: "Lógica Invertida (Ativo-BAIXO, padrão para módulos de relé)",
+        alexa_label: "🎙️ Detectável e Controlável pela Alexa (Comando de Voz)",
+        allowed_users_label: "Usuários Permitidos",
+        radio_everyone: "Todos (sem restrição)",
+        radio_specific: "Apenas usuários específicos",
+        select_users_placeholder: "Selecione usuários permitidos...",
+        select_all: "Selecionar Todos",
+        clear: "Limpar",
+        users_header: "Usuários",
+        users_hint: "Selecione quais usuários cadastrados têm permissão para controlar este dispositivo.",
+        cancel: "Cancelar",
+        save_map_pin: "Salvar e Mapear Pino",
+        modal_add_room: "Adicionar Novo Cômodo",
+        room_name_label: "Nome do Cômodo (ex: Garagem, Varanda, Escritório)",
+        room_name_placeholder: "ex: Garagem",
+        room_slug_label: "Identificador Único do Cômodo (slug)",
+        room_slug_placeholder: "ex: garagem",
+        btn_add_room: "Adicionar Cômodo",
+        modal_add_person: "Adicionar Nova Pessoa",
+        modal_edit_person: "Editar Perfil: ",
+        display_name_label: "Nome de Exibição (ex: Mãe, Irmã, Convidado)",
+        display_name_placeholder: "Nome de Exibição",
+        role_label: "Função",
+        role_user: "Usuário Padrão (Acesso Restrito)",
+        role_admin: "Administrador (Acesso Total)",
+        allowed_rooms_label: "Cômodos Permitidos",
+        btn_save_person: "Salvar Pessoa",
+        nav_controls: "Controles",
+        nav_settings: "Configurações",
+        confirm_del_control: "Tem certeza de que deseja excluir este controle? O pino GPIO atribuído será liberado.",
+        confirm_del_user: "Tem certeza de que deseja excluir o perfil '{u}'?",
+        confirm_reboot: "Deseja reiniciar o Hub ESP32 agora?",
+        rebooting_alert: "Comando de reinicialização enviado. Reconectando em 5 segundos...",
+        ota_select_bin: "Por favor, escolha um arquivo de firmware .bin",
+        perm_denied: "Permissão negada: Você não tem acesso a este dispositivo",
+        select_room_min: "Selecione pelo menos 1 cômodo para esta pessoa.",
+        select_user_min: "Selecione pelo menos um usuário no menu, ou selecione 'Todos'."
+      }
+    };
+
+    const ROOM_TRANSLATIONS = {
+      pt: {
+        'all': 'Todos Permitidos',
+        'living_room': 'Sala de Estar',
+        'bed_1': 'Quarto Principal',
+        'bed_2': 'Quarto Infantil',
+        'kitchen': 'Cozinha',
+        'balcony': 'Varanda',
+        'office': 'Escritório',
+        'garage': 'Garagem',
+        'bathroom': 'Banheiro',
+        'garden': 'Jardim'
+      },
+      en: {
+        'all': 'All Allowed',
+        'living_room': 'Living Room',
+        'bed_1': 'Master Bedroom',
+        'bed_2': "Kid's Bedroom",
+        'kitchen': 'Kitchen',
+        'balcony': 'Balcony',
+        'office': 'Office',
+        'garage': 'Garage',
+        'bathroom': 'Bathroom',
+        'garden': 'Garden'
+      }
+    };
+
+    function t(key, vars = {}) {
+      let str = (TRANSLATIONS[currentLang] && TRANSLATIONS[currentLang][key]) ||
+                (TRANSLATIONS['en'] && TRANSLATIONS['en'][key]) || key;
+      for (const [k, v] of Object.entries(vars)) {
+        str = str.replace(new RegExp(`{${k}}`, 'g'), v);
+      }
+      return str;
+    }
+
+    function getRoomDisplayName(roomId, defaultName) {
+      if (!roomId) return defaultName || '';
+      if (ROOM_TRANSLATIONS[currentLang] && ROOM_TRANSLATIONS[currentLang][roomId]) {
+        return ROOM_TRANSLATIONS[currentLang][roomId];
+      }
+      if (defaultName) return defaultName;
+      return roomId.replace(/_/g, ' ');
+    }
+
+    function getTypeNames() {
+      return [
+        t('type_light'),
+        t('type_dimmer'),
+        t('type_fan'),
+        t('type_relay')
+      ];
+    }
+
+    function applyTranslations() {
+      document.documentElement.lang = currentLang === 'pt' ? 'pt-BR' : 'en';
+
+      const flagEl = document.getElementById('langFlag');
+      const textEl = document.getElementById('langText');
+      const toggleEl = document.getElementById('langToggle');
+      if (flagEl) flagEl.innerText = t('lang_flag');
+      if (textEl) textEl.innerText = t('lang_code');
+      if (toggleEl) toggleEl.title = t('lang_title');
+
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const k = el.getAttribute('data-i18n');
+        if (k) el.innerText = t(k);
+      });
+
+      document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        const k = el.getAttribute('data-i18n-placeholder');
+        if (k) el.placeholder = t(k);
+      });
+
+      const wsEl = document.getElementById('wsBadge');
+      if (wsEl) {
+        if (ws) {
+          wsEl.innerText = t('live_online');
+        } else {
+          wsEl.innerText = t('live_offline');
+        }
+      }
+
+      if (appData && appData.rooms && appData.rooms.length > 0) renderRoomPills();
+      if (appData && appData.devices && appData.devices.length > 0) renderDevices();
+      if (appData && appData.sensors) renderSensors(appData.sensors);
+      if (currentUser && currentUser.role === 'admin') {
+        renderAdminControlsTable();
+        if (systemUsers.length > 0) renderUserTable(systemUsers);
+      }
+    }
+
+    // Language Toggle Listener
+    const langToggleBtn = document.getElementById('langToggle');
+    if (langToggleBtn) {
+      langToggleBtn.addEventListener('click', () => {
+        currentLang = (currentLang === 'pt') ? 'en' : 'pt';
+        localStorage.setItem('smarthome_lang', currentLang);
+        applyTranslations();
+      });
+    }
 
     const TYPE_NAMES = ["Light / Switch", "Dimmer (PWM)", "Fan", "Appliance Relay"];
 
@@ -678,6 +1076,7 @@
     }
 
     window.addEventListener('DOMContentLoaded', () => {
+      applyTranslations();
       if (authToken) {
         verifySession();
       } else {
@@ -756,11 +1155,11 @@
           localStorage.setItem('smarthome_token', authToken);
           showDashboard();
         } else {
-          errBox.innerText = data.error || 'Invalid username or password';
+          errBox.innerText = data.error || t('login_err_invalid');
           errBox.style.display = 'block';
         }
       } catch (err) {
-        errBox.innerText = 'Cannot connect to ESP32 Hub';
+        errBox.innerText = t('login_err_connect');
         errBox.style.display = 'block';
       }
     });
@@ -784,7 +1183,7 @@
 
       ws.onopen = () => {
         document.getElementById('wsBadge').className = 'badge badge-live';
-        document.getElementById('wsBadge').innerText = '● Live';
+        document.getElementById('wsBadge').innerText = t('live_online');
       };
 
       ws.onmessage = (event) => {
@@ -805,7 +1204,7 @@
         document.getElementById('wsBadge').className = 'badge';
         document.getElementById('wsBadge').style.background = 'rgba(239,68,68,0.2)';
         document.getElementById('wsBadge').style.color = 'var(--danger)';
-        document.getElementById('wsBadge').innerText = '○ Offline';
+        document.getElementById('wsBadge').innerText = t('live_offline');
         ws = null;
         setTimeout(initWebSocket, 3000);
       };
@@ -834,9 +1233,10 @@
 
     function renderRoomPills() {
       const container = document.getElementById('roomPills');
-      let html = `<div class="pill ${currentRoomFilter === 'all' ? 'active' : ''}" onclick="filterRoom('all')">All Allowed</div>`;
+      let html = `<div class="pill ${currentRoomFilter === 'all' ? 'active' : ''}" onclick="filterRoom('all')">${t('all_allowed')}</div>`;
       appData.rooms.forEach(r => {
-        html += `<div class="pill ${currentRoomFilter === r.id ? 'active' : ''}" onclick="filterRoom('${r.id}')">${r.name}</div>`;
+        const dName = getRoomDisplayName(r.id, r.name);
+        html += `<div class="pill ${currentRoomFilter === r.id ? 'active' : ''}" onclick="filterRoom('${r.id}')">${dName}</div>`;
       });
       container.innerHTML = html;
     }
@@ -878,14 +1278,14 @@
             <div class="device-info">
               <h4>${d.name}</h4>
               <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span>${d.roomId.replace('_', ' ')}</span>
-                ${d.pin >= 0 ? `<span class="badge-pin">GPIO ${d.pin}</span>` : `<span style="font-size:0.7rem; color:var(--text-muted);">Virtual</span>`}
+                <span>${getRoomDisplayName(d.roomId)}</span>
+                ${d.pin >= 0 ? `<span class="badge-pin">GPIO ${d.pin}</span>` : `<span style="font-size:0.7rem; color:var(--text-muted);">${t('pin_virtual').split(' ')[0]}</span>`}
               </div>
             </div>
             ${(isDimmer || isFan) ? `
               <div class="range-wrap">
                 <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">
-                  <span>${isFan ? 'Fan Speed' : 'Brightness'}</span>
+                  <span>${isFan ? t('fan_speed') : t('brightness')}</span>
                   <span id="val_${d.id}">${d.value || (d.state ? 100 : 0)}%</span>
                 </div>
                 <input type="range" min="1" max="100" id="slider_${d.id}" value="${d.value || (d.state ? 100 : 0)}" class="range-slider" 
@@ -899,7 +1299,7 @@
 
       document.getElementById('statActive').innerText = activeCount;
       if (filtered.length === 0) {
-        container.innerHTML = `<div style="grid-column: 1/-1; text-align:center; color:var(--text-muted); padding:40px;">No devices available in this room for your account.</div>`;
+        container.innerHTML = `<div style="grid-column: 1/-1; text-align:center; color:var(--text-muted); padding:40px;">${t('no_devices')}</div>`;
       } else {
         container.innerHTML = html;
       }
@@ -912,10 +1312,10 @@
       
       const motionEl = document.getElementById('statMotion');
       if (s.motion) {
-        motionEl.innerText = 'Detected!';
+        motionEl.innerText = t('motion_detected');
         motionEl.style.color = 'var(--danger)';
       } else {
-        motionEl.innerText = 'Clear';
+        motionEl.innerText = t('motion_clear');
         motionEl.style.color = 'var(--text-muted)';
       }
 
@@ -1007,25 +1407,26 @@
       let html = '';
       appData.devices.forEach(d => {
         const roomObj = appData.rooms.find(r => r.id === d.roomId);
-        const roomName = roomObj ? roomObj.name : d.roomId;
-        const typeName = TYPE_NAMES[d.type] || "Switch";
+        const roomName = getRoomDisplayName(d.roomId, roomObj ? roomObj.name : d.roomId);
+        const typeNames = getTypeNames();
+        const typeName = typeNames[d.type] || t('type_light');
 
         html += `
           <tr>
             <td><strong>${d.name}</strong></td>
             <td>${roomName}</td>
             <td><span class="badge badge-user">${typeName}</span></td>
-            <td>${d.pin >= 0 ? `<strong>GPIO ${d.pin}</strong>` : `<em style="color:var(--text-muted)">Virtual</em>`}</td>
-            <td><span style="font-size:0.75rem; color:var(--text-muted);">${d.inverted ? 'Active-LOW' : 'Active-HIGH'}</span></td>
-            <td><span style="font-size:0.75rem; color:var(--text-muted);">${(!d.allowedUsers || d.allowedUsers === '*') ? 'Everyone' : d.allowedUsers}</span></td>
-            <td>${d.alexaEnabled !== false ? '<span class="badge badge-live" style="font-size:0.75rem;">🎙️ Yes</span>' : '<span class="badge" style="font-size:0.75rem; opacity:0.6;">No</span>'}</td>
+            <td>${d.pin >= 0 ? `<strong>GPIO ${d.pin}</strong>` : `<em style="color:var(--text-muted)">${t('pin_virtual').split(' ')[0]}</em>`}</td>
+            <td><span style="font-size:0.75rem; color:var(--text-muted);">${d.inverted ? t('logic_low') : t('logic_high')}</span></td>
+            <td><span style="font-size:0.75rem; color:var(--text-muted);">${(!d.allowedUsers || d.allowedUsers === '*') ? t('everyone') : d.allowedUsers}</span></td>
+            <td>${d.alexaEnabled !== false ? '<span class="badge badge-live" style="font-size:0.75rem;">🎙️ ' + t('yes') + '</span>' : '<span class="badge" style="font-size:0.75rem; opacity:0.6;">' + t('no') + '</span>'}</td>
             <td>
               <span id="admin_state_${d.id}" class="badge ${d.state ? 'badge-live' : ''}">${d.state ? 'ON' : 'OFF'}</span>
             </td>
             <td class="actions-cell">
-              <button class="btn btn-outline btn-sm" onclick="toggleDevice('${d.id}')">Toggle</button>
-              <button class="btn btn-outline btn-sm" onclick="editControl('${d.id}')">Edit</button>
-              <button class="btn btn-danger btn-sm" onclick="deleteControl('${d.id}')">Delete</button>
+              <button class="btn btn-outline btn-sm" onclick="toggleDevice('${d.id}')">${t('toggle')}</button>
+              <button class="btn btn-outline btn-sm" onclick="editControl('${d.id}')">${t('edit')}</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteControl('${d.id}')">${t('delete')}</button>
             </td>
           </tr>
         `;
@@ -1156,7 +1557,7 @@
     });
 
     function openAddControlModal() {
-      document.getElementById('controlModalTitle').innerText = 'Add New Control & Map Pin';
+      document.getElementById('controlModalTitle').innerText = t('modal_add_control');
       document.getElementById('ctrlModalId').value = '';
       document.getElementById('ctrlModalName').value = '';
       document.getElementById('ctrlModalType').value = '0';
@@ -1175,7 +1576,7 @@
     function editControl(id) {
       const d = appData.devices.find(x => x.id === id);
       if (!d) return;
-      document.getElementById('controlModalTitle').innerText = 'Edit Control: ' + d.name;
+      document.getElementById('controlModalTitle').innerText = t('modal_edit_control') + d.name;
       document.getElementById('ctrlModalId').value = d.id;
       document.getElementById('ctrlModalName').value = d.name;
       document.getElementById('ctrlModalRoom').value = d.roomId;
@@ -1257,7 +1658,7 @@
     });
 
     async function deleteControl(id) {
-      if (!confirm('Are you sure you want to delete this control? The assigned ESP32 pin will be freed.')) return;
+      if (!confirm(t('confirm_del_control'))) return;
       try {
         const res = await fetch('/api/devices/delete', {
           method: 'POST',
@@ -1334,10 +1735,10 @@
             <td><strong>${u.displayName || u.username}</strong></td>
             <td><code>${u.username}</code></td>
             <td><span class="badge ${u.role === 'admin' ? 'badge-user' : ''}">${u.role}</span></td>
-            <td><span style="font-size:0.8rem; color:var(--text-muted);">${u.allowedRooms === '*' ? 'All Rooms' : u.allowedRooms.replace(/,/g, ', ')}</span></td>
+            <td><span style="font-size:0.8rem; color:var(--text-muted);">${u.allowedRooms === '*' ? t('all_rooms') : u.allowedRooms.split(',').map(r => getRoomDisplayName(r.trim())).join(', ')}</span></td>
             <td class="actions-cell">
-              <button class="btn btn-outline btn-sm" onclick="editUser('${u.username}','${u.displayName}','${u.role}','${u.allowedRooms}')">Edit</button>
-              ${!isRoot ? `<button class="btn btn-danger btn-sm" onclick="deleteUser('${u.username}')">Delete</button>` : ''}
+              <button class="btn btn-outline btn-sm" onclick="editUser('${u.username}','${u.displayName}','${u.role}','${u.allowedRooms}')">${t('edit')}</button>
+              ${!isRoot ? `<button class="btn btn-danger btn-sm" onclick="deleteUser('${u.username}')">${t('delete')}</button>` : ''}
             </td>
           </tr>
         `;
@@ -1347,7 +1748,7 @@
 
     function openAddUserModal() {
       document.getElementById('modalIsEdit').value = '0';
-      document.getElementById('userModalTitle').innerText = 'Add New Person';
+      document.getElementById('userModalTitle').innerText = t('modal_add_person');
       document.getElementById('modalUsername').value = '';
       document.getElementById('modalUsername').disabled = false;
       document.getElementById('modalPassword').value = '';
@@ -1361,7 +1762,7 @@
 
     function editUser(username, displayName, role, rooms) {
       document.getElementById('modalIsEdit').value = '1';
-      document.getElementById('userModalTitle').innerText = 'Edit Profile: ' + displayName;
+      document.getElementById('userModalTitle').innerText = t('modal_edit_person') + displayName;
       document.getElementById('modalUsername').value = username;
       document.getElementById('modalUsername').disabled = true;
       document.getElementById('modalPassword').value = '';
@@ -1427,7 +1828,7 @@
     });
 
     async function deleteUser(username) {
-      if (!confirm(`Are you sure you want to delete profile '${username}'?`)) return;
+      if (!confirm(t('confirm_del_user', { u: username }))) return;
       try {
         const res = await fetch('/api/users/delete', {
           method: 'POST',
@@ -1551,13 +1952,13 @@
     }
 
     async function rebootEsp() {
-      if (!confirm('Reboot the ESP32 Hub now?')) return;
+      if (!confirm(t('confirm_reboot'))) return;
       try {
         await fetch('/api/system/reboot', {
           method: 'POST',
           headers: { 'Authorization': 'Bearer ' + authToken }
         });
-        alert('Reboot command sent. Reconnecting in 5 seconds...');
+        alert(t('rebooting_alert'));
         setTimeout(() => location.reload(), 5000);
       } catch (e) {}
     }
