@@ -244,12 +244,16 @@ bool ButtonManager::addButton(PhysicalButton btn, String& errorMsg) {
   if (btn.pin >= 0) {
     // Check if pin is used as an output by a device
     if (DeviceManager::getInstance().isPinUsedByDevice(btn.pin)) {
-      errorMsg = "GPIO " + String(btn.pin) + " is already assigned to an output control device";
+      Device* dev = DeviceManager::getInstance().getDeviceByPin(btn.pin);
+      String dName = dev ? dev->name : "device";
+      errorMsg = "GPIO " + String(btn.pin) + " is already assigned to device '" + dName + "'";
       return false;
     }
     // Check if pin is already used by another button
     if (isPinUsedByButton(btn.pin)) {
-      errorMsg = "GPIO " + String(btn.pin) + " is already assigned to another physical button";
+      PhysicalButton* otherBtn = getButtonByPin(btn.pin);
+      String bName = otherBtn ? otherBtn->name : "button";
+      errorMsg = "GPIO " + String(btn.pin) + " is already assigned to button '" + bName + "'";
       return false;
     }
   }
@@ -282,11 +286,15 @@ bool ButtonManager::updateButton(PhysicalButton updatedBtn, String& errorMsg) {
 
   if (updatedBtn.pin >= 0) {
     if (DeviceManager::getInstance().isPinUsedByDevice(updatedBtn.pin)) {
-      errorMsg = "GPIO " + String(updatedBtn.pin) + " is already assigned to an output control device";
+      Device* dev = DeviceManager::getInstance().getDeviceByPin(updatedBtn.pin);
+      String dName = dev ? dev->name : "device";
+      errorMsg = "GPIO " + String(updatedBtn.pin) + " is already assigned to device '" + dName + "'";
       return false;
     }
     if (isPinUsedByButton(updatedBtn.pin, updatedBtn.id)) {
-      errorMsg = "GPIO " + String(updatedBtn.pin) + " is already assigned to another physical button";
+      PhysicalButton* otherBtn = getButtonByPin(updatedBtn.pin);
+      String bName = otherBtn ? otherBtn->name : "button";
+      errorMsg = "GPIO " + String(updatedBtn.pin) + " is already assigned to button '" + bName + "'";
       return false;
     }
   }
@@ -354,6 +362,14 @@ bool ButtonManager::triggerButton(const String& btnId, String& errorMsg) {
 PhysicalButton* ButtonManager::getButton(const String& btnId) {
   for (auto& b : _buttons) {
     if (b.id == btnId) return &b;
+  }
+  return nullptr;
+}
+
+PhysicalButton* ButtonManager::getButtonByPin(int pin) {
+  if (pin < 0) return nullptr;
+  for (auto& b : _buttons) {
+    if (b.pin == pin) return &b;
   }
   return nullptr;
 }

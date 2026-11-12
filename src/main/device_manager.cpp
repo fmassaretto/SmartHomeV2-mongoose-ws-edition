@@ -1,4 +1,5 @@
 #include "device_manager.h"
+#include "button_manager.h"
 #include <esp_system.h>
 #include <esp_ota_ops.h>
 #include <Preferences.h>
@@ -306,6 +307,13 @@ bool DeviceManager::addDevice(Device newDev, String& errorMsg) {
     }
   }
 
+  if (newDev.pin >= 0 && ButtonManager::getInstance().isPinUsedByButton(newDev.pin)) {
+    PhysicalButton* btn = ButtonManager::getInstance().getButtonByPin(newDev.pin);
+    String bName = btn ? btn->name : "physical button";
+    errorMsg = "GPIO pin " + String(newDev.pin) + " is already in use by button '" + bName + "'";
+    return false;
+  }
+
   if (!isSafePin(newDev.pin)) {
     errorMsg = "GPIO pin " + String(newDev.pin) + " is reserved or unsafe on ESP32";
     return false;
@@ -347,6 +355,12 @@ bool DeviceManager::updateDevice(Device updatedDev, String& errorMsg) {
             errorMsg = "GPIO pin " + String(updatedDev.pin) + " is already in use by '" + other.name + "'";
             return false;
           }
+        }
+        if (ButtonManager::getInstance().isPinUsedByButton(updatedDev.pin)) {
+          PhysicalButton* btn = ButtonManager::getInstance().getButtonByPin(updatedDev.pin);
+          String bName = btn ? btn->name : "physical button";
+          errorMsg = "GPIO pin " + String(updatedDev.pin) + " is already in use by button '" + bName + "'";
+          return false;
         }
         deconfigureHardwarePin(dev);
         dev.pin = updatedDev.pin;
@@ -441,6 +455,16 @@ bool DeviceManager::deleteRoom(const String& roomId, String& errorMsg) {
 Device* DeviceManager::getDevice(const String& deviceId) {
   for (auto& dev : _devices) {
     if (dev.id == deviceId) {
+      return &dev;
+    }
+  }
+  return nullptr;
+}
+
+Device* DeviceManager::getDeviceByPin(int pin) {
+  if (pin < 0) return nullptr;
+  for (auto& dev : _devices) {
+    if (dev.pin == pin) {
       return &dev;
     }
   }

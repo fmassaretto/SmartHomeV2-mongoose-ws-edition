@@ -952,7 +952,12 @@
         test_btn: "Simulate Press",
         confirm_del_btn: "Are you sure you want to delete this physical button?",
         select_device_min: "Please select at least 1 device to control.",
-        all_devices: "All Devices (Master Switch)"
+        all_devices: "All Devices (Master Switch)",
+        used_for_device: "Used for device",
+        used_for_button: "Used for button",
+        current_pin: "Current pin",
+        pin_taken_device: "GPIO {pin} is already taken by device '{name}'!",
+        pin_taken_button: "GPIO {pin} is already taken by button '{name}'!"
       },
       pt: {
         lang_flag: "🇧🇷",
@@ -1112,7 +1117,12 @@
         test_btn: "Simular Clique",
         confirm_del_btn: "Tem certeza de que deseja excluir este botão físico?",
         select_device_min: "Selecione pelo menos 1 dispositivo para controlar.",
-        all_devices: "Todos os Dispositivos (Interruptor Geral)"
+        all_devices: "Todos os Dispositivos (Interruptor Geral)",
+        used_for_device: "Usado p/ dispositivo",
+        used_for_button: "Usado p/ botão",
+        current_pin: "Pino atual",
+        pin_taken_device: "O pino GPIO {pin} já está em uso pelo dispositivo '{name}'!",
+        pin_taken_button: "O pino GPIO {pin} já está em uso pelo botão físico '{name}'!"
       }
     };
 
@@ -1205,6 +1215,7 @@
       if (currentUser && currentUser.role === 'admin') {
         renderAdminControlsTable();
         renderAdminButtonsTable();
+        updateAllPinDropdowns();
         if (systemUsers.length > 0) renderUserTable(systemUsers);
       }
     }
@@ -1385,6 +1396,7 @@
             renderAdminControlsTable();
             renderAdminButtonsTable();
             populateRoomSelects();
+            updateAllPinDropdowns();
           }
         }
       } catch (err) {
@@ -1717,12 +1729,129 @@
       }
     });
 
+    // --- Dynamic Pin Allocation & Usage Flags ---
+    function populateDevicePinSelect(selectedPin = -1, currentDeviceId = '') {
+      const select = document.getElementById('ctrlModalPin');
+      if (!select) return;
+
+      const DEVICE_PINS = [
+        { pin: -1, base: t('pin_virtual') },
+        { pin: 2, base: 'GPIO 2 (Built-in LED)' },
+        { pin: 4, base: 'GPIO 4' },
+        { pin: 5, base: 'GPIO 5' },
+        { pin: 12, base: 'GPIO 12' },
+        { pin: 13, base: 'GPIO 13' },
+        { pin: 14, base: 'GPIO 14' },
+        { pin: 15, base: 'GPIO 15' },
+        { pin: 16, base: 'GPIO 16' },
+        { pin: 17, base: 'GPIO 17' },
+        { pin: 18, base: 'GPIO 18' },
+        { pin: 19, base: 'GPIO 19' },
+        { pin: 21, base: 'GPIO 21' },
+        { pin: 22, base: 'GPIO 22' },
+        { pin: 23, base: 'GPIO 23' },
+        { pin: 25, base: 'GPIO 25' },
+        { pin: 26, base: 'GPIO 26' },
+        { pin: 27, base: 'GPIO 27' },
+        { pin: 32, base: 'GPIO 32' },
+        { pin: 33, base: 'GPIO 33' }
+      ];
+
+      let html = '';
+      DEVICE_PINS.forEach(item => {
+        let tag = '';
+        if (item.pin >= 0) {
+          const isCurrent = (currentDeviceId && selectedPin === item.pin);
+          const dev = appData && appData.devices ? appData.devices.find(d => d.pin === item.pin && d.id !== currentDeviceId) : null;
+          const btn = systemButtons ? systemButtons.find(b => b.pin === item.pin) : null;
+
+          if (isCurrent) {
+            tag = ` (${t('current_pin')})`;
+          } else if (btn) {
+            tag = ` (${t('used_for_button')}: ${btn.name})`;
+          } else if (dev) {
+            tag = ` (${t('used_for_device')}: ${dev.name})`;
+          }
+        }
+
+        const isSelected = (item.pin === selectedPin);
+        html += `<option value="${item.pin}" ${isSelected ? 'selected' : ''}>${item.base}${tag}</option>`;
+      });
+
+      select.innerHTML = html;
+      select.value = String(selectedPin);
+    }
+
+    function populateButtonPinSelect(selectedPin = 13, currentButtonId = '') {
+      const select = document.getElementById('btnModalPin');
+      if (!select) return;
+
+      const BUTTON_PINS = [
+        { pin: 0, base: 'GPIO 0 (Boot Button)' },
+        { pin: 2, base: 'GPIO 2' },
+        { pin: 4, base: 'GPIO 4' },
+        { pin: 5, base: 'GPIO 5' },
+        { pin: 12, base: 'GPIO 12' },
+        { pin: 13, base: 'GPIO 13' },
+        { pin: 14, base: 'GPIO 14' },
+        { pin: 15, base: 'GPIO 15' },
+        { pin: 16, base: 'GPIO 16' },
+        { pin: 17, base: 'GPIO 17' },
+        { pin: 18, base: 'GPIO 18' },
+        { pin: 19, base: 'GPIO 19' },
+        { pin: 21, base: 'GPIO 21' },
+        { pin: 22, base: 'GPIO 22' },
+        { pin: 23, base: 'GPIO 23' },
+        { pin: 25, base: 'GPIO 25' },
+        { pin: 26, base: 'GPIO 26' },
+        { pin: 27, base: 'GPIO 27' },
+        { pin: 32, base: 'GPIO 32' },
+        { pin: 33, base: 'GPIO 33' },
+        { pin: 34, base: 'GPIO 34 (Input-only)' },
+        { pin: 35, base: 'GPIO 35 (Input-only)' },
+        { pin: 36, base: 'GPIO 36 / VP (Input-only)' },
+        { pin: 39, base: 'GPIO 39 / VN (Input-only)' }
+      ];
+
+      let html = '';
+      BUTTON_PINS.forEach(item => {
+        let tag = '';
+        const isCurrent = (currentButtonId && selectedPin === item.pin);
+        const dev = appData && appData.devices ? appData.devices.find(d => d.pin === item.pin) : null;
+        const btn = systemButtons ? systemButtons.find(b => b.pin === item.pin && b.id !== currentButtonId) : null;
+
+        if (isCurrent) {
+          tag = ` (${t('current_pin')})`;
+        } else if (btn) {
+          tag = ` (${t('used_for_button')}: ${btn.name})`;
+        } else if (dev) {
+          tag = ` (${t('used_for_device')}: ${dev.name})`;
+        }
+
+        const isSelected = (item.pin === selectedPin);
+        html += `<option value="${item.pin}" ${isSelected ? 'selected' : ''}>${item.base}${tag}</option>`;
+      });
+
+      select.innerHTML = html;
+      select.value = String(selectedPin);
+    }
+
+    function updateAllPinDropdowns() {
+      const curDevPin = document.getElementById('ctrlModalPin') ? parseInt(document.getElementById('ctrlModalPin').value) : -1;
+      const curDevId = document.getElementById('ctrlModalId') ? document.getElementById('ctrlModalId').value : '';
+      populateDevicePinSelect(isNaN(curDevPin) ? -1 : curDevPin, curDevId);
+
+      const curBtnPin = document.getElementById('btnModalPin') ? parseInt(document.getElementById('btnModalPin').value) : 13;
+      const curBtnId = document.getElementById('btnModalId') ? document.getElementById('btnModalId').value : '';
+      populateButtonPinSelect(isNaN(curBtnPin) ? 13 : curBtnPin, curBtnId);
+    }
+
     function openAddControlModal() {
       document.getElementById('controlModalTitle').innerText = t('modal_add_control');
       document.getElementById('ctrlModalId').value = '';
       document.getElementById('ctrlModalName').value = '';
       document.getElementById('ctrlModalType').value = '0';
-      document.getElementById('ctrlModalPin').value = '2';
+      populateDevicePinSelect(-1, '');
       document.getElementById('ctrlModalInverted').checked = false;
       document.getElementById('ctrlModalAlexa').checked = true;
       document.getElementById('ctrlAccessAll').checked = true;
@@ -1742,7 +1871,7 @@
       document.getElementById('ctrlModalName').value = d.name;
       document.getElementById('ctrlModalRoom').value = d.roomId;
       document.getElementById('ctrlModalType').value = String(d.type);
-      document.getElementById('ctrlModalPin').value = String(d.pin);
+      populateDevicePinSelect(d.pin, d.id);
       document.getElementById('ctrlModalInverted').checked = !!d.inverted;
       document.getElementById('ctrlModalAlexa').checked = (d.alexaEnabled !== false);
       const au = d.allowedUsers || '*';
@@ -1789,6 +1918,21 @@
 
       const isEdit = id.length > 0;
       const endpoint = isEdit ? '/api/devices/update' : '/api/devices/add';
+
+      // Validate pin conflicts
+      if (pin >= 0) {
+        const devConflict = appData && appData.devices ? appData.devices.find(d => d.id !== id && d.pin === pin) : null;
+        if (devConflict) {
+          alert(t('pin_taken_device', { pin, name: devConflict.name }));
+          return;
+        }
+        const btnConflict = systemButtons ? systemButtons.find(b => b.pin === pin) : null;
+        if (btnConflict) {
+          alert(t('pin_taken_button', { pin, name: btnConflict.name }));
+          return;
+        }
+      }
+
       const isSpecific = document.getElementById('ctrlAccessSpecific').checked;
       let allowedUsers = '*';
       if (isSpecific) {
@@ -1882,6 +2026,7 @@
           const data = await res.json();
           systemButtons = data.buttons || [];
           renderAdminButtonsTable();
+          updateAllPinDropdowns();
         }
       } catch (e) {
         console.error('Failed to load buttons', e);
@@ -2001,7 +2146,7 @@
       document.getElementById('buttonModalTitle').innerText = t('modal_add_button');
       document.getElementById('btnModalId').value = '';
       document.getElementById('btnModalName').value = '';
-      document.getElementById('btnModalPin').value = '13';
+      populateButtonPinSelect(13, '');
       document.getElementById('btnModalMode').value = '0';
       document.getElementById('btnModalPull').value = '0';
       selectedBtnDevices.clear();
@@ -2016,7 +2161,7 @@
       document.getElementById('buttonModalTitle').innerText = t('modal_edit_button') + b.name;
       document.getElementById('btnModalId').value = b.id;
       document.getElementById('btnModalName').value = b.name;
-      document.getElementById('btnModalPin').value = String(b.pin);
+      populateButtonPinSelect(b.pin, b.id);
       document.getElementById('btnModalMode').value = String(b.mode);
       document.getElementById('btnModalPull').value = String(b.pull);
 
@@ -2092,6 +2237,19 @@
       if (selectedBtnDevices.size === 0) {
         alert(t('select_device_min'));
         return;
+      }
+
+      if (pin >= 0) {
+        const devConflict = appData && appData.devices ? appData.devices.find(d => d.pin === pin) : null;
+        if (devConflict) {
+          alert(t('pin_taken_device', { pin, name: devConflict.name }));
+          return;
+        }
+        const btnConflict = systemButtons ? systemButtons.find(b => b.id !== id && b.pin === pin) : null;
+        if (btnConflict) {
+          alert(t('pin_taken_button', { pin, name: btnConflict.name }));
+          return;
+        }
       }
 
       const targetDevices = Array.from(selectedBtnDevices).join(',');

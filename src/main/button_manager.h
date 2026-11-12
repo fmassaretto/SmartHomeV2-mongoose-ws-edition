@@ -52,6 +52,7 @@ public:
   bool triggerButton(const String& btnId, String& errorMsg);
 
   PhysicalButton* getButton(const String& btnId);
+  PhysicalButton* getButtonByPin(int pin);
   const std::vector<PhysicalButton>& getButtons() const { return _buttons; }
 
   // Check pin usage

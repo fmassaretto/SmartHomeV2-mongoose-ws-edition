@@ -67,6 +67,7 @@ public:
   bool deleteRoom(const String& roomId, String& errorMsg);
 
   Device* getDevice(const String& deviceId);
+  Device* getDeviceByPin(int pin);
   SensorReadings getSensors() const { return _sensors; }
 
   // JSON representations
