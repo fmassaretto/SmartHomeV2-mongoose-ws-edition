@@ -79,6 +79,7 @@ public:
   const std::vector<Device>& getDevices() const { return _devices; }
 
   static bool isSafePin(int pin);
+  bool isPinUsedByDevice(int pin, const String& excludeDeviceId = "") const;
 
 private:
   DeviceManager();

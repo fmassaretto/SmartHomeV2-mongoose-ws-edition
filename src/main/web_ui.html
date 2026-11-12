@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -413,6 +413,34 @@
           </div>
         </div>
 
+        <!-- Physical Buttons & Wall Switches Management -->
+        <div class="admin-section">
+          <h3>
+            <span data-i18n="buttons_title">Physical Buttons & Wall Switches</span>
+            <button class="btn btn-sm" onclick="openAddButtonModal()" data-i18n="add_button">+ Add Button / Switch</button>
+          </h3>
+          <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:16px;" data-i18n="buttons_sub">
+            Assign ESP32 input GPIO pins to physical push buttons or wall toggle switches to control one or more devices.
+          </p>
+          <div style="overflow-x:auto;">
+            <table class="user-table">
+              <thead>
+                <tr>
+                  <th data-i18n="col_button_name">Button / Switch</th>
+                  <th data-i18n="col_button_pin">ESP32 Input Pin</th>
+                  <th data-i18n="col_button_mode">Switch Mode</th>
+                  <th data-i18n="col_button_targets">Controlled Device(s)</th>
+                  <th data-i18n="col_level">Live Level</th>
+                  <th data-i18n="col_actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="buttonTableBody">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- User Management -->
         <div class="admin-section">
           <h3>
@@ -603,6 +631,80 @@
     </div>
   </div>
 
+  <!-- Add/Edit Physical Button Modal -->
+  <div class="modal-overlay" id="buttonModal">
+    <div class="modal">
+      <div class="modal-title" id="buttonModalTitle" data-i18n="modal_add_button">Add Physical Button / Switch</div>
+      <form id="buttonModalForm">
+        <input type="hidden" id="btnModalId" value="">
+        <div class="form-group">
+          <label data-i18n="btn_name_label">Button / Switch Name (e.g. Living Wall Switch, Bed Button)</label>
+          <input type="text" id="btnModalName" class="input-field" placeholder="e.g. Living Room Switch" data-i18n-placeholder="btn_name_placeholder" required>
+        </div>
+        <div class="form-group">
+          <label data-i18n="btn_pin_label">ESP32 Input GPIO Pin</label>
+          <select id="btnModalPin" class="input-field">
+            <option value="0">GPIO 0 (On-board Boot Button / Input)</option>
+            <option value="2">GPIO 2</option>
+            <option value="4">GPIO 4</option>
+            <option value="5">GPIO 5</option>
+            <option value="12">GPIO 12</option>
+            <option value="13" selected>GPIO 13 (Standard Input)</option>
+            <option value="14">GPIO 14 (Standard Input)</option>
+            <option value="15">GPIO 15</option>
+            <option value="16">GPIO 16</option>
+            <option value="17">GPIO 17</option>
+            <option value="18">GPIO 18</option>
+            <option value="19">GPIO 19</option>
+            <option value="21">GPIO 21</option>
+            <option value="22">GPIO 22</option>
+            <option value="23">GPIO 23</option>
+            <option value="25">GPIO 25</option>
+            <option value="26">GPIO 26</option>
+            <option value="27">GPIO 27</option>
+            <option value="32">GPIO 32</option>
+            <option value="33">GPIO 33</option>
+            <option value="34">GPIO 34 (Input-only, Requires External Resistor)</option>
+            <option value="35">GPIO 35 (Input-only, Requires External Resistor)</option>
+            <option value="36">GPIO 36 / VP (Input-only, Requires External Resistor)</option>
+            <option value="39">GPIO 39 / VN (Input-only, Requires External Resistor)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label data-i18n="btn_mode_label">Switch / Button Type (Physical Control Mode)</label>
+          <select id="btnModalMode" class="input-field">
+            <option value="0" data-i18n="mode_push">🔘 Momentary Pushbutton (Toggles device on each press)</option>
+            <option value="1" data-i18n="mode_rocker">🎚️ ON-OFF Toggle Switch (Every position flip toggles device - 2-Way)</option>
+            <option value="2" data-i18n="mode_follow">⚡ Follow Switch State (ON position = ON, OFF position = OFF)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label data-i18n="btn_pull_label">Resistor Configuration</label>
+          <select id="btnModalPull" class="input-field">
+            <option value="0" data-i18n="pull_up">Internal Pull-Up (Default - Button connects GPIO to GND)</option>
+            <option value="1" data-i18n="pull_down">Internal Pull-Down (Button connects GPIO to 3.3V)</option>
+            <option value="2" data-i18n="pull_none">No Internal Pull (External resistor / GPIO 34-39)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label data-i18n="btn_targets_label">Controlled Device(s)</label>
+          <div style="margin-bottom:8px; display:flex; gap:12px; font-size:0.8rem;">
+            <a href="javascript:void(0)" onclick="selectAllBtnDevices(true)" style="color:var(--primary); font-weight:600;" data-i18n="select_all">Select All</a>
+            <span style="color:var(--text-muted)">•</span>
+            <a href="javascript:void(0)" onclick="selectAllBtnDevices(false)" style="color:var(--text-muted); font-weight:600;" data-i18n="clear">Clear</a>
+          </div>
+          <div id="btnModalDevicesList" style="max-height:160px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; padding:8px 12px; background:var(--bg-card);">
+            <!-- Populated dynamically with checkboxes -->
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:20px;">
+          <button type="button" class="btn btn-outline" onclick="closeButtonModal()" data-i18n="cancel">Cancel</button>
+          <button type="submit" class="btn" data-i18n="save_btn">Save Button</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Add Room Modal -->
   <div class="modal-overlay" id="roomModal">
     <div class="modal">
@@ -683,6 +785,8 @@
     let appData = { rooms: [], devices: [], sensors: {} };
     let systemUsers = [];
     let selectedAllowedUsers = new Set();
+    let systemButtons = [];
+    let selectedBtnDevices = new Set();
     let ws = null;
 
     // Internationalization (i18n) - English and Brazilian Portuguese
@@ -821,7 +925,34 @@
         ota_select_bin: "Please choose a .bin firmware file",
         perm_denied: "Permission denied: You do not have access to this device",
         select_room_min: "Please select at least 1 room for this person.",
-        select_user_min: "Please select at least one user from the combobox, or select 'Everyone'."
+        select_user_min: "Please select at least one user from the combobox, or select 'Everyone'.",
+        buttons_title: "Physical Buttons & Wall Switches",
+        buttons_sub: "Assign ESP32 input GPIO pins to physical push buttons or wall toggle switches to control one or more devices.",
+        add_button: "+ Add Button / Switch",
+        col_button_name: "Button / Switch",
+        col_button_pin: "ESP32 Input Pin",
+        col_button_mode: "Switch Mode",
+        col_button_targets: "Controlled Device(s)",
+        col_level: "Live Level",
+        modal_add_button: "Add Physical Button / Switch",
+        modal_edit_button: "Edit Physical Button: ",
+        btn_name_label: "Button / Switch Name (e.g. Living Wall Switch, Bed Button)",
+        btn_name_placeholder: "e.g. Living Room Switch",
+        btn_pin_label: "ESP32 Input GPIO Pin",
+        btn_mode_label: "Switch / Button Type (Physical Control Mode)",
+        mode_push: "🔘 Momentary Pushbutton (Toggles device on each press)",
+        mode_rocker: "🎚️ ON-OFF Toggle Switch (Every position flip toggles device - 2-Way)",
+        mode_follow: "⚡ Follow Switch State (ON position = ON, OFF position = OFF)",
+        btn_pull_label: "Resistor Configuration",
+        pull_up: "Internal Pull-Up (Default - Button connects GPIO to GND)",
+        pull_down: "Internal Pull-Down (Button connects GPIO to 3.3V)",
+        pull_none: "No Internal Pull (External resistor / GPIO 34-39)",
+        btn_targets_label: "Controlled Device(s)",
+        save_btn: "Save Button",
+        test_btn: "Simulate Press",
+        confirm_del_btn: "Are you sure you want to delete this physical button?",
+        select_device_min: "Please select at least 1 device to control.",
+        all_devices: "All Devices (Master Switch)"
       },
       pt: {
         lang_flag: "🇧🇷",
@@ -954,7 +1085,34 @@
         ota_select_bin: "Por favor, escolha um arquivo de firmware .bin",
         perm_denied: "Permissão negada: Você não tem acesso a este dispositivo",
         select_room_min: "Selecione pelo menos 1 cômodo para esta pessoa.",
-        select_user_min: "Selecione pelo menos um usuário no menu, ou selecione 'Todos'."
+        select_user_min: "Selecione pelo menos um usuário no menu, ou selecione 'Todos'.",
+        buttons_title: "Botões Físicos & Interruptores de Parede",
+        buttons_sub: "Atribua pinos GPIO de entrada do ESP32 a botões de pulso físicos ou interruptores de parede para controlar um ou mais dispositivos.",
+        add_button: "+ Adicionar Botão / Interruptor",
+        col_button_name: "Botão / Interruptor",
+        col_button_pin: "Pino Entrada ESP32",
+        col_button_mode: "Modo do Interruptor",
+        col_button_targets: "Dispositivo(s) Controlado(s)",
+        col_level: "Nível Atual",
+        modal_add_button: "Adicionar Botão / Interruptor Físico",
+        modal_edit_button: "Editar Botão Físico: ",
+        btn_name_label: "Nome do Botão / Interruptor (ex: Interruptor da Sala)",
+        btn_name_placeholder: "ex: Interruptor da Sala de Estar",
+        btn_pin_label: "Pino GPIO de Entrada do ESP32",
+        btn_mode_label: "Tipo de Botão / Interruptor (Modo de Controle Físico)",
+        mode_push: "🔘 Botão de Pulso / Pulsador (Alterna o dispositivo a cada clique)",
+        mode_rocker: "🎚️ Interruptor Liga-Desliga Convencional (Cada mudança de posição alterna o dispositivo)",
+        mode_follow: "⚡ Seguir Posição da Chave (Posição Ligada = LIGAR, Desligada = DESLIGAR)",
+        btn_pull_label: "Configuração de Resistor",
+        pull_up: "Pull-Up Interno (Padrão - Botão liga ao GND)",
+        pull_down: "Pull-Down Interno (Botão liga ao 3.3V)",
+        pull_none: "Sem Pull Interno (Resistor externo / GPIO 34-39)",
+        btn_targets_label: "Dispositivo(s) Controlado(s)",
+        save_btn: "Salvar Botão",
+        test_btn: "Simular Clique",
+        confirm_del_btn: "Tem certeza de que deseja excluir este botão físico?",
+        select_device_min: "Selecione pelo menos 1 dispositivo para controlar.",
+        all_devices: "Todos os Dispositivos (Interruptor Geral)"
       }
     };
 
@@ -1046,6 +1204,7 @@
       if (appData && appData.sensors) renderSensors(appData.sensors);
       if (currentUser && currentUser.role === 'admin') {
         renderAdminControlsTable();
+        renderAdminButtonsTable();
         if (systemUsers.length > 0) renderUserTable(systemUsers);
       }
     }
@@ -1129,6 +1288,7 @@
       loadDevices();
       if (isAdmin) {
         loadUsers();
+        loadButtons();
         loadSystemStats();
       }
       initWebSocket();
@@ -1223,6 +1383,7 @@
           renderSensors(appData.sensors);
           if (currentUser && currentUser.role === 'admin') {
             renderAdminControlsTable();
+            renderAdminButtonsTable();
             populateRoomSelects();
           }
         }
@@ -1708,6 +1869,254 @@
         }
       } catch (e) {
         alert('Network error');
+      }
+    });
+
+    // --- Physical Buttons & Wall Switches (Admin) ---
+    async function loadButtons() {
+      try {
+        const res = await fetch('/api/buttons', {
+          headers: { 'Authorization': 'Bearer ' + authToken }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          systemButtons = data.buttons || [];
+          renderAdminButtonsTable();
+        }
+      } catch (e) {
+        console.error('Failed to load buttons', e);
+      }
+    }
+
+    function getButtonModeName(mode) {
+      if (mode === 1) return t('mode_rocker');
+      if (mode === 2) return t('mode_follow');
+      return t('mode_push');
+    }
+
+    function getPullModeName(pull) {
+      if (pull === 1) return 'Pull-Down';
+      if (pull === 2) return 'No Pull';
+      return 'Pull-Up';
+    }
+
+    function renderAdminButtonsTable() {
+      const tbody = document.getElementById('buttonTableBody');
+      if (!tbody) return;
+
+      if (!systemButtons || systemButtons.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-muted); font-size:0.85rem;">No physical buttons configured yet. Click "+ Add Button / Switch" to map a GPIO pin to your lights or devices.</td></tr>`;
+        return;
+      }
+
+      let html = '';
+      systemButtons.forEach(b => {
+        const modeLabel = getButtonModeName(b.mode);
+        const pullLabel = getPullModeName(b.pull);
+
+        // Format target device badges
+        let targetsHtml = '';
+        if (b.targetDevices === '*' || !b.targetDevices) {
+          targetsHtml = `<span class="badge badge-user" style="background:var(--primary); color:#fff;">${t('all_devices')}</span>`;
+        } else {
+          const devIds = b.targetDevices.split(',');
+          devIds.forEach(id => {
+            const trimmed = id.trim();
+            const dev = appData.devices ? appData.devices.find(d => d.id === trimmed) : null;
+            const devName = dev ? dev.name : trimmed;
+            targetsHtml += `<span class="badge badge-user" style="margin-right:4px; margin-bottom:4px; display:inline-block;">${devName}</span>`;
+          });
+        }
+
+        const isLow = (b.pinLevel === 0);
+        const levelBadge = b.pin >= 0 ? 
+          `<span class="badge ${isLow ? 'badge-live' : ''}" style="font-size:0.75rem;">${isLow ? 'LOW (0)' : 'HIGH (1)'}</span>` : 
+          `<span class="badge" style="opacity:0.6;">-</span>`;
+
+        html += `
+          <tr>
+            <td><strong>${b.name}</strong></td>
+            <td>
+              <strong>GPIO ${b.pin}</strong>
+              <span style="font-size:0.75rem; color:var(--text-muted); margin-left:4px;">(${pullLabel})</span>
+            </td>
+            <td><span style="font-size:0.8rem;">${modeLabel}</span></td>
+            <td>${targetsHtml}</td>
+            <td>${levelBadge}</td>
+            <td class="actions-cell">
+              <button class="btn btn-outline btn-sm" onclick="testButton('${b.id}')" title="${t('test_btn')}">⚡ ${t('test_btn')}</button>
+              <button class="btn btn-outline btn-sm" onclick="editButton('${b.id}')">${t('edit')}</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteButton('${b.id}', '${b.name.replace(/'/g, "\\'")}')">${t('delete')}</button>
+            </td>
+          </tr>
+        `;
+      });
+      tbody.innerHTML = html;
+    }
+
+    function populateBtnDeviceCheckboxes() {
+      const container = document.getElementById('btnModalDevicesList');
+      if (!container) return;
+
+      if (!appData.devices || appData.devices.length === 0) {
+        container.innerHTML = `<div style="color:var(--text-muted); font-size:0.8rem; text-align:center; padding:10px;">No devices available</div>`;
+        return;
+      }
+
+      let html = '';
+      appData.devices.forEach(d => {
+        const isChecked = selectedBtnDevices.has(d.id);
+        const roomObj = appData.rooms.find(r => r.id === d.roomId);
+        const roomName = roomObj ? roomObj.name : d.roomId;
+        html += `
+          <label class="checkbox-item" style="padding:4px 0; font-size:0.85rem; display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" value="${d.id}" ${isChecked ? 'checked' : ''} onchange="onBtnDeviceCheckboxChange('${d.id}', this.checked)">
+            <span><strong>${d.name}</strong> <span style="color:var(--text-muted); font-size:0.75rem;">(${roomName})</span></span>
+          </label>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    function onBtnDeviceCheckboxChange(devId, checked) {
+      if (checked) {
+        selectedBtnDevices.add(devId);
+      } else {
+        selectedBtnDevices.delete(devId);
+      }
+    }
+
+    function selectAllBtnDevices(selectAll) {
+      if (selectAll) {
+        if (appData.devices) {
+          appData.devices.forEach(d => selectedBtnDevices.add(d.id));
+        }
+      } else {
+        selectedBtnDevices.clear();
+      }
+      populateBtnDeviceCheckboxes();
+    }
+
+    function openAddButtonModal() {
+      document.getElementById('buttonModalTitle').innerText = t('modal_add_button');
+      document.getElementById('btnModalId').value = '';
+      document.getElementById('btnModalName').value = '';
+      document.getElementById('btnModalPin').value = '13';
+      document.getElementById('btnModalMode').value = '0';
+      document.getElementById('btnModalPull').value = '0';
+      selectedBtnDevices.clear();
+      populateBtnDeviceCheckboxes();
+      document.getElementById('buttonModal').style.display = 'flex';
+    }
+
+    function editButton(id) {
+      const b = systemButtons.find(x => x.id === id);
+      if (!b) return;
+
+      document.getElementById('buttonModalTitle').innerText = t('modal_edit_button') + b.name;
+      document.getElementById('btnModalId').value = b.id;
+      document.getElementById('btnModalName').value = b.name;
+      document.getElementById('btnModalPin').value = String(b.pin);
+      document.getElementById('btnModalMode').value = String(b.mode);
+      document.getElementById('btnModalPull').value = String(b.pull);
+
+      selectedBtnDevices.clear();
+      if (b.targetDevices === '*' || b.targetDevices === 'all') {
+        if (appData.devices) appData.devices.forEach(d => selectedBtnDevices.add(d.id));
+      } else if (b.targetDevices) {
+        b.targetDevices.split(',').forEach(d => {
+          const trimmed = d.trim();
+          if (trimmed) selectedBtnDevices.add(trimmed);
+        });
+      }
+      populateBtnDeviceCheckboxes();
+      document.getElementById('buttonModal').style.display = 'flex';
+    }
+
+    function closeButtonModal() {
+      document.getElementById('buttonModal').style.display = 'none';
+    }
+
+    async function testButton(btnId) {
+      try {
+        const res = await fetch('/api/buttons/test', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + authToken
+          },
+          body: JSON.stringify({ id: btnId })
+        });
+        if (res.ok) {
+          // Triggered successfully
+        } else {
+          const err = await res.json();
+          alert(err.error || 'Failed to simulate button press');
+        }
+      } catch (e) {
+        alert('Communication error with ESP32');
+      }
+    }
+
+    async function deleteButton(id, name) {
+      if (!confirm(t('confirm_del_btn'))) return;
+      try {
+        const res = await fetch('/api/buttons/delete', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + authToken
+          },
+          body: JSON.stringify({ id })
+        });
+        if (res.ok) {
+          loadButtons();
+        } else {
+          const err = await res.json();
+          alert(err.error || 'Failed to delete button');
+        }
+      } catch (e) {
+        alert('Communication error with ESP32');
+      }
+    }
+
+    // Submit listener for buttonModalForm
+    document.getElementById('buttonModalForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('btnModalId').value.trim();
+      const name = document.getElementById('btnModalName').value.trim();
+      const pin = parseInt(document.getElementById('btnModalPin').value);
+      const mode = parseInt(document.getElementById('btnModalMode').value);
+      const pull = parseInt(document.getElementById('btnModalPull').value);
+
+      if (selectedBtnDevices.size === 0) {
+        alert(t('select_device_min'));
+        return;
+      }
+
+      const targetDevices = Array.from(selectedBtnDevices).join(',');
+      const isEdit = id.length > 0;
+      const endpoint = isEdit ? '/api/buttons/update' : '/api/buttons/add';
+      const payload = { id, name, pin, mode, pull, targetDevices, enabled: true };
+
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + authToken
+          },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          closeButtonModal();
+          loadButtons();
+        } else {
+          const err = await res.json();
+          alert(err.error || 'Failed to save button');
+        }
+      } catch (e) {
+        alert('Communication error with ESP32');
       }
     });
 

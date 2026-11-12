@@ -179,6 +179,7 @@ bool AlexaManager::isAlexaRequest(struct mg_http_message *hm) {
     // Exclude all known Web UI and Android App endpoints
     if (mg_match(hm->uri, mg_str("/api/auth#"), NULL) ||
         mg_match(hm->uri, mg_str("/api/devices#"), NULL) ||
+        mg_match(hm->uri, mg_str("/api/buttons#"), NULL) ||
         mg_match(hm->uri, mg_str("/api/users#"), NULL) ||
         mg_match(hm->uri, mg_str("/api/rooms#"), NULL) ||
         mg_match(hm->uri, mg_str("/api/wifi#"), NULL) ||

@@ -4,6 +4,7 @@
 #include "device_manager.h"
 #include "wifi_manager.h"
 #include "alexa_manager.h"
+#include "button_manager.h"
 #include <esp_ota_ops.h>
 #include <esp_system.h>
 
@@ -375,6 +376,10 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
         mg_match(hm->uri, mg_str("/api/devices/add"), NULL) ||
         mg_match(hm->uri, mg_str("/api/devices/update"), NULL) ||
         mg_match(hm->uri, mg_str("/api/devices/delete"), NULL) ||
+        mg_match(hm->uri, mg_str("/api/buttons/add"), NULL) ||
+        mg_match(hm->uri, mg_str("/api/buttons/update"), NULL) ||
+        mg_match(hm->uri, mg_str("/api/buttons/delete"), NULL) ||
+        mg_match(hm->uri, mg_str("/api/buttons/test"), NULL) ||
         mg_match(hm->uri, mg_str("/api/rooms#"), NULL) ||
         mg_match(hm->uri, mg_str("/api/wifi#"), NULL) ||
         mg_match(hm->uri, mg_str("/api/system#"), NULL)) {
@@ -467,6 +472,95 @@ void WebServer::httpEventHandler(struct mg_connection *c, int ev, void *ev_data)
       String devId = getJsonString(hm->body, "$.id");
       String err;
       if (DeviceManager::getInstance().deleteDevice(devId, err)) {
+        sendJsonResponse(c, hm, 200, "{\"success\":true}\n");
+      } else {
+        sendJsonResponse(c, hm, 400, "{\"error\":\"" + err + "\"}\n");
+      }
+      return;
+    }
+
+    // --- Physical Buttons APIs ---
+    if (mg_match(hm->uri, mg_str("/api/buttons"), NULL) && strncasecmp(hm->method.buf, "GET", 3) == 0) {
+      String json = "{\"buttons\":" + ButtonManager::getInstance().getButtonsJson() + "}\n";
+      sendJsonResponse(c, hm, 200, json);
+      return;
+    }
+
+    if (mg_match(hm->uri, mg_str("/api/buttons/add"), NULL)) {
+      PhysicalButton b;
+      b.id = getJsonString(hm->body, "$.id");
+      b.name = getJsonString(hm->body, "$.name");
+
+      double pinVal = -1;
+      mg_json_get_num(hm->body, "$.pin", &pinVal);
+      b.pin = (int)pinVal;
+
+      double modeVal = 0;
+      mg_json_get_num(hm->body, "$.mode", &modeVal);
+      b.mode = (ButtonMode)(int)modeVal;
+
+      double pullVal = 0;
+      mg_json_get_num(hm->body, "$.pull", &pullVal);
+      b.pull = (PullMode)(int)pullVal;
+
+      b.targetDevices = getJsonString(hm->body, "$.targetDevices");
+      b.enabled = true;
+
+      String err;
+      if (ButtonManager::getInstance().addButton(b, err)) {
+        sendJsonResponse(c, hm, 200, "{\"success\":true}\n");
+      } else {
+        sendJsonResponse(c, hm, 400, "{\"error\":\"" + err + "\"}\n");
+      }
+      return;
+    }
+
+    if (mg_match(hm->uri, mg_str("/api/buttons/update"), NULL)) {
+      PhysicalButton b;
+      b.id = getJsonString(hm->body, "$.id");
+      b.name = getJsonString(hm->body, "$.name");
+
+      double pinVal = -1;
+      mg_json_get_num(hm->body, "$.pin", &pinVal);
+      b.pin = (int)pinVal;
+
+      double modeVal = 0;
+      mg_json_get_num(hm->body, "$.mode", &modeVal);
+      b.mode = (ButtonMode)(int)modeVal;
+
+      double pullVal = 0;
+      mg_json_get_num(hm->body, "$.pull", &pullVal);
+      b.pull = (PullMode)(int)pullVal;
+
+      b.targetDevices = getJsonString(hm->body, "$.targetDevices");
+      bool enabled = true;
+      mg_json_get_bool(hm->body, "$.enabled", &enabled);
+      b.enabled = enabled;
+
+      String err;
+      if (ButtonManager::getInstance().updateButton(b, err)) {
+        sendJsonResponse(c, hm, 200, "{\"success\":true}\n");
+      } else {
+        sendJsonResponse(c, hm, 400, "{\"error\":\"" + err + "\"}\n");
+      }
+      return;
+    }
+
+    if (mg_match(hm->uri, mg_str("/api/buttons/delete"), NULL)) {
+      String btnId = getJsonString(hm->body, "$.id");
+      String err;
+      if (ButtonManager::getInstance().deleteButton(btnId, err)) {
+        sendJsonResponse(c, hm, 200, "{\"success\":true}\n");
+      } else {
+        sendJsonResponse(c, hm, 400, "{\"error\":\"" + err + "\"}\n");
+      }
+      return;
+    }
+
+    if (mg_match(hm->uri, mg_str("/api/buttons/test"), NULL)) {
+      String btnId = getJsonString(hm->body, "$.id");
+      String err;
+      if (ButtonManager::getInstance().triggerButton(btnId, err)) {
         sendJsonResponse(c, hm, 200, "{\"success\":true}\n");
       } else {
         sendJsonResponse(c, hm, 400, "{\"error\":\"" + err + "\"}\n");

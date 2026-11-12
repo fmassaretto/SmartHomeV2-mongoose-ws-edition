@@ -6,6 +6,7 @@
 #include "device_manager.h"
 #include "web_server.h"
 #include "alexa_manager.h"
+#include "button_manager.h"
 
 void setup() {
   Serial.begin(115200);
@@ -39,6 +40,9 @@ void setup() {
   // 6. Initialize Alexa Echo Local Voice Assistant Bridge
   AlexaManager::getInstance().begin();
 
+  // 7. Initialize Physical Input Buttons & Wall Switches
+  ButtonManager::getInstance().begin();
+
   Serial.println("==================================================");
   Serial.printf(" [READY] Access Web UI / Android App at:\n");
   Serial.printf("   Direct AP:  http://%s\n", WifiManager::getInstance().getApIp().c_str());
@@ -58,6 +62,9 @@ void loop() {
 
   // Listen for local Alexa Echo SSDP discovery & events
   AlexaManager::getInstance().loop();
+
+  // Poll Physical Input Buttons with debouncing
+  ButtonManager::getInstance().loop();
 
   // Yield to FreeRTOS IDLE task to satisfy watchdog
   delay(1);

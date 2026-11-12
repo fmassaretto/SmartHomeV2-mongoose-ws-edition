@@ -33,6 +33,14 @@ bool DeviceManager::isSafePin(int pin) {
   return false;
 }
 
+bool DeviceManager::isPinUsedByDevice(int pin, const String& excludeDeviceId) const {
+  if (pin < 0) return false;
+  for (const auto& d : _devices) {
+    if (d.id != excludeDeviceId && d.pin == pin) return true;
+  }
+  return false;
+}
+
 int DeviceManager::allocatePwmChannel() {
   int ch = _nextPwmChannel;
   _nextPwmChannel = (_nextPwmChannel + 1) % 16;
@@ -251,7 +259,7 @@ bool DeviceManager::setDeviceState(const String& deviceId, bool state, int value
       updateHardwarePin(dev);
 
       Serial.printf("[DEV] Device '%s' state changed -> %s (value: %d, pin: %d)\n",
-                    dev.id.c_str(), dev.state ? "ON" : "OFF", dev.value, dev.pin);
+                    dev.name.c_str(), dev.state ? "ON" : "OFF", dev.value, dev.pin);
 
       if (_changeCallback) {
         String payload = "{";
